@@ -107,6 +107,12 @@ class Handler(BaseHTTPRequestHandler):
             # 仓库布局兼容：/demos/xxx.html 直映 demos/ 子目录
             if fname.startswith("demos/"):
                 fname = os.path.join("demos", fname[len("demos/"):])
+            if path == "/favicon.ico":
+                fname = os.path.join("demos", "favicon.ico")
+            elif fname.endswith("probes.compiled.json") and not os.path.isfile(os.path.join(ROOT, fname)):
+                # 编译产物唯一事实源在仓库根（graph_to_probes.py 的 OUT）；
+                # duel_chat 从 /demos/ 相对加载时回退根文件，避免两份副本漂移
+                fname = "probes.compiled.json"
         ext = os.path.splitext(fname)[1].lower()
         fpath = os.path.normpath(os.path.join(ROOT, fname))
         if ext not in ALLOWED_EXT or not fpath.startswith(ROOT) or not os.path.isfile(fpath):
