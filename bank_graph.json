@@ -1,0 +1,1169 @@
+{
+ "schemaVersion": "4.1",
+ "graphId": "demo.bank.mobile",
+ "version": "2026-09-28-bank6",
+ "bank": "演示银行",
+ "appSurface": "手机银行App客服消息路由",
+ "publishedAt": "2026-09-28",
+ "digest": "6 域全量图谱：转账/生活缴费/理财/账户/挂失止付/投诉纠纷。bank6 新增 utility 生活缴费域（水/电/燃气/话费/物业/供暖/社保医保），词面素材对齐向量库实测命中（ccb.life.* 0.66~0.74）。唯一事实源——duel_chat PROBES 与 GLM 判据均由本文件编译。",
+ "intentTree": [
+  {
+   "id": "demo.root",
+   "title": "手机银行",
+   "node_role": "root",
+   "parent_intent_id": null,
+   "path": "手机银行",
+   "scope_in": [
+    "手机银行全部业务"
+   ]
+  },
+  {
+   "id": "demo.utility",
+   "title": "生活缴费",
+   "node_role": "domain",
+   "parent_intent_id": "demo.root",
+   "path": "生活缴费",
+   "scope_in": [
+    "缴费",
+    "交费",
+    "水费",
+    "电费",
+    "燃气费",
+    "话费",
+    "物业费",
+    "供暖费",
+    "社保",
+    "医保",
+    "代扣",
+    "生活缴费"
+   ],
+   "scope_out": [
+    "余额明细",
+    "转账",
+    "理财",
+    "挂失",
+    "投诉",
+    "乱扣费"
+   ],
+   "navigationTerms": [
+    "生活缴费",
+    "缴费",
+    "水费",
+    "电费",
+    "话费",
+    "燃气费",
+    "物业费",
+    "代扣"
+   ],
+   "domainGate": {
+    "question": "与生活缴费（水/电/燃气/话费/物业/供暖/社保医保，含代扣与缴费记录）有关？",
+    "semantic_definition": {
+     "userGoal": "缴纳生活费用或咨询缴费相关",
+     "description": "客户缴纳水费、电费、燃气费、话费、物业费、供暖费、社保医保等生活费用，或咨询缴费记录、代扣设置、缴费方式。"
+    }
+   }
+  },
+  {
+   "id": "demo.utility.pay",
+   "title": "缴纳生活费用",
+   "node_role": "leaf",
+   "parent_intent_id": "demo.utility",
+   "path": "生活缴费/缴纳生活费用",
+   "scope_in": [
+    "缴费",
+    "交费",
+    "水费",
+    "电费",
+    "燃气费",
+    "话费",
+    "物业费",
+    "供暖费",
+    "社保",
+    "医保",
+    "代扣"
+   ],
+   "scope_out": [
+    "查余额",
+    "转账",
+    "理财买入",
+    "挂失",
+    "投诉"
+   ],
+   "scenes": [
+    {
+     "scene_type": "DO_QUERY",
+     "semantic_definition": {
+      "intentType": "DO_QUERY",
+      "userGoal": "缴纳或咨询生活缴费费用",
+      "description": "客户缴纳水费、电费、燃气费、话费、物业费、供暖费等生活费用，或咨询缴费记录、代扣、缴费方式。",
+      "confusableIntents": [
+       "demo.account.query#DO_QUERY"
+      ],
+      "disambiguationHints": [
+       "交/缴具体费用（水费电费等）归本场景",
+       "查账户余额明细归账户查询域",
+       "对乱扣费表达不满的归投诉纠纷域"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "我要交水费",
+       "帮我交一下电费",
+       "燃气费在哪交",
+       "帮我充话费",
+       "物业费怎么交",
+       "暖气费缴纳",
+       "查一下缴费记录",
+       "水费代扣",
+       "这个月电费多少",
+       "生活缴费在哪里"
+      ],
+      "recallTerms": [
+       "缴费",
+       "交费",
+       "水费",
+       "电费",
+       "话费",
+       "燃气费",
+       "物业费",
+       "代扣"
+      ],
+      "recallTermSets": [
+       [
+        "水费"
+       ],
+       [
+        "电费"
+       ],
+       [
+        "话费"
+       ],
+       [
+        "燃气"
+       ],
+       [
+        "物业"
+       ],
+       [
+        "暖气"
+       ],
+       [
+        "供暖"
+       ],
+       [
+        "社保"
+       ],
+       [
+        "医保"
+       ],
+       [
+        "缴费"
+       ],
+       [
+        "代扣"
+       ]
+      ],
+      "semanticView": [
+       "缴费",
+       "代扣",
+       "账单"
+      ],
+      "objectView": [
+       "水费",
+       "电费",
+       "燃气费",
+       "话费",
+       "物业费",
+       "供暖费",
+       "社保",
+       "医保"
+      ],
+      "actionView": [
+       "交",
+       "缴",
+       "充",
+       "查"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "查一下我的余额",
+       "给我儿子转五千",
+       "买点理财",
+       "我的卡被冻结了",
+       "你们乱扣费我要投诉"
+      ]
+     },
+     "probe": {
+      "q": "客户要缴纳生活费用（水/电/燃气/话费/物业/供暖/社保医保），或咨询缴费记录、代扣？",
+      "ct": "客户要交水费/电费/燃气费/话费/物业费/供暖费/社保医保等生活费用，或查缴费记录、缴费方式、代扣设置",
+      "cf": "不是缴纳生活费用：查余额、转账、理财、挂失投诉，或对扣费有异议的投诉（归投诉纠纷域）"
+     }
+    }
+   ]
+  },
+  {
+   "id": "demo.transfer",
+   "title": "转账汇款",
+   "node_role": "domain",
+   "parent_intent_id": "demo.root",
+   "path": "转账汇款",
+   "scope_in": [
+    "转账",
+    "汇款",
+    "转给某人",
+    "限额",
+    "手续费",
+    "收款方"
+   ],
+   "scope_out": [
+    "理财",
+    "余额明细",
+    "挂失",
+    "投诉"
+   ],
+   "navigationTerms": [
+    "转账",
+    "汇款",
+    "限额",
+    "手续费",
+    "收款人",
+    "手机号转账"
+   ],
+   "domainGate": {
+    "question": "与转账汇款（含限额/手续费咨询）有关？",
+    "semantic_definition": {
+     "userGoal": "主动向他人转账汇款，或咨询转账操作规则",
+     "description": "客户向他人付款、手机号/账号转账，或咨询转账限额、手续费、到账时间等操作规则。"
+    }
+   }
+  },
+  {
+   "id": "demo.transfer.peer",
+   "title": "转账给他人",
+   "node_role": "leaf",
+   "parent_intent_id": "demo.transfer",
+   "path": "转账汇款/转账给他人",
+   "scope_in": [
+    "转账",
+    "汇款",
+    "转给",
+    "限额",
+    "手续费"
+   ],
+   "scope_out": [
+    "理财买入",
+    "查余额",
+    "挂失"
+   ],
+   "scenes": [
+    {
+     "scene_type": "DO",
+     "semantic_definition": {
+      "intentType": "DO",
+      "userGoal": "完成一笔转账",
+      "description": "客户主动把钱转给他人或指定账户，含手机号转账。",
+      "confusableIntents": [
+       "demo.transfer.peer#QUERY",
+       "demo.loss_fraud.protect#DO"
+      ],
+      "disambiguationHints": [
+       "客户自己发起主动付款归本场景",
+       "被陌生来电诱导转账的归挂失止付域",
+       "只是问规则不实际转的归查询场景"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "给张三转五千",
+       "转账给他",
+       "帮我转五千块",
+       "转五千块给他",
+       "手机号转账给他",
+       "汇款给我朋友",
+       "给儿子转生活费",
+       "转一笔钱给我妈"
+      ],
+      "recallTerms": [
+       "转账",
+       "汇款",
+       "转给"
+      ],
+      "recallTermSets": [
+       [
+        "转",
+        "五千"
+       ],
+       [
+        "帮",
+        "转"
+       ]
+      ],
+      "semanticView": [
+       "付款",
+       "打钱",
+       "划款"
+      ],
+      "objectView": [
+       "他人",
+       "收款人",
+       "朋友",
+       "家人"
+      ],
+      "actionView": [
+       "转",
+       "汇",
+       "付"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "转账限额是多少",
+       "转账手续费多少",
+       "我的卡被陌生电话骗着转账怎么办",
+       "查余额"
+      ]
+     },
+     "probe": {
+      "q": "客户想主动把钱转给别人？",
+      "ct": "客户想主动转账/汇款给他人（含手机号转账），如给某人转具体金额",
+      "cf": "客户不发起付款：只咨询限额/手续费规则、查余额，或是被诈骗诱导转账的情形"
+     }
+    },
+    {
+     "scene_type": "QUERY",
+     "semantic_definition": {
+      "intentType": "QUERY",
+      "userGoal": "咨询转账规则",
+      "description": "询问转账限额、手续费、到账时间等规则，不发起实际转账。",
+      "confusableIntents": [
+       "demo.transfer.peer#DO"
+      ],
+      "disambiguationHints": [
+       "只问规则未说转给谁归本场景",
+       "有明确收款人和金额的归办理场景"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "转账限额多少",
+       "转账手续费收多少",
+       "手机银行转账几点到账",
+       "跨行转账要多久",
+       "单日转账上限",
+       "转账收费吗"
+      ],
+      "recallTerms": [
+       "限额",
+       "手续费",
+       "到账"
+      ],
+      "recallTermSets": [
+       [
+        "转账",
+        "限额"
+       ],
+       [
+        "转账",
+        "手续费"
+       ]
+      ],
+      "semanticView": [
+       "规则",
+       "费用",
+       "时效"
+      ],
+      "objectView": [
+       "转账规则",
+       "限额",
+       "费率"
+      ],
+      "actionView": [
+       "问",
+       "咨询",
+       "多少"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "帮我给张三转五千",
+       "转账失败了怎么办"
+      ]
+     },
+     "probe": {
+      "q": "咨询转账限额、手续费、到账等规则？",
+      "ct": "咨询转账操作规则：限额多少、手续费多少、多久到账",
+      "cf": "客户不是在问规则：是实际要转账、查余额，或其他业务"
+     }
+    }
+   ]
+  },
+  {
+   "id": "demo.wealth",
+   "title": "理财购买",
+   "node_role": "domain",
+   "parent_intent_id": "demo.root",
+   "path": "财富管理",
+   "scope_in": [
+    "理财",
+    "基金",
+    "买理财",
+    "推荐理财",
+    "理财收益",
+    "定投",
+    "净值",
+    "赎回",
+    "稳享"
+   ],
+   "scope_out": [
+    "转账汇款",
+    "余额明细",
+    "挂失",
+    "投诉"
+   ],
+   "navigationTerms": [
+    "理财",
+    "基金",
+    "投资",
+    "收益",
+    "净值",
+    "定投",
+    "赎回",
+    "申购",
+    "持仓",
+    "风险等级",
+    "推荐"
+   ],
+   "domainGate": {
+    "question": "与购买理财/基金，或净值、收益、到期、风险等级有关？",
+    "semantic_definition": {
+     "userGoal": "了解或购买理财/基金产品",
+     "description": "理财/基金咨询、购买、赎回、定投、交易，含让客服推荐理财产品。"
+    }
+   }
+  },
+  {
+   "id": "demo.wealth.buy",
+   "title": "理财购买与咨询",
+   "node_role": "leaf",
+   "parent_intent_id": "demo.wealth",
+   "path": "财富管理/理财购买与咨询",
+   "scope_in": [
+    "买理财",
+    "稳享系列",
+    "推荐理财",
+    "净值",
+    "收益",
+    "到期",
+    "风险等级"
+   ],
+   "scope_out": [
+    "转账",
+    "查余额",
+    "挂失"
+   ],
+   "scenes": [
+    {
+     "scene_type": "DO_QUERY",
+     "semantic_definition": {
+      "intentType": "DO",
+      "userGoal": "购买或获推荐理财产品，或咨询净值收益风险",
+      "description": "客户想买理财/基金，或让客服推荐理财产品，或咨询净值、收益、到期、风险等级。涵盖 duel_chat 五类中的 wealth 类全量诉求。",
+      "confusableIntents": [
+       "demo.complaint.emotion#DO"
+      ],
+      "disambiguationHints": [
+       "推荐、买、问净值收益风险的都归本场景",
+       "对理财亏损表达不满要求赔偿的归投诉域",
+       "查理财持仓明细的归账户查询域"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "推荐理财",
+       "推荐理财吧",
+       "推荐个理财产品",
+       "给我推荐理财",
+       "买点理财",
+       "我想买点基金",
+       "稳享系列还能买吗",
+       "今天净值多少",
+       "这个理财风险等级多少",
+       "有稳一点的理财吗",
+       "理财收益怎么样",
+       "定期理财到期了钱去哪"
+      ],
+      "recallTerms": [
+       "理财",
+       "基金",
+       "净值",
+       "收益",
+       "到期",
+       "风险等级",
+       "推荐"
+      ],
+      "recallTermSets": [
+       [
+        "推荐",
+        "理财"
+       ],
+       [
+        "买",
+        "理财"
+       ],
+       [
+        "理财",
+        "风险"
+       ]
+      ],
+      "semanticView": [
+       "闲钱理财",
+       "稳健理财",
+       "业绩比较基准",
+       "配置"
+      ],
+      "objectView": [
+       "理财产品",
+       "稳享系列",
+       "基金",
+       "净值",
+       "收益"
+      ],
+      "actionView": [
+       "推荐",
+       "买",
+       "购买",
+       "申购",
+       "问",
+       "查"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "你们推荐理财还乱扣费，我要投诉",
+       "查我的理财持仓明细",
+       "把钱转给我儿子"
+      ]
+     },
+     "probe": {
+      "q": "与购买理财/基金，或净值、收益、到期、风险等级有关？",
+      "ct": "客户想买理财/基金，或让推荐理财，或咨询净值、收益、到期、风险等级等",
+      "cf": "不涉及理财基金产品：如查账户余额明细、转账汇款、卡片挂失止付，或对理财亏损表达不满要求赔偿（归投诉纠纷域）"
+     }
+    }
+   ]
+  },
+  {
+   "id": "demo.account",
+   "title": "账户查询",
+   "node_role": "domain",
+   "parent_intent_id": "demo.root",
+   "path": "账户查询",
+   "scope_in": [
+    "余额",
+    "明细",
+    "账单",
+    "流水",
+    "密码",
+    "锁定",
+    "账户状态"
+   ],
+   "scope_out": [
+    "转账汇款",
+    "理财",
+    "挂失",
+    "投诉"
+   ],
+   "navigationTerms": [
+    "余额",
+    "明细",
+    "账单",
+    "流水",
+    "密码",
+    "锁定",
+    "账户"
+   ],
+   "domainGate": {
+    "question": "是查询余额、明细、账单，或账户状态/密码/锁定问题？",
+    "semantic_definition": {
+     "userGoal": "查询账户信息或解决账户状态问题",
+     "description": "查余额、交易明细、账单流水，或密码锁定、账户状态异常等问题。"
+    }
+   }
+  },
+  {
+   "id": "demo.account.query",
+   "title": "余额明细与账户状态",
+   "node_role": "leaf",
+   "parent_intent_id": "demo.account",
+   "path": "账户查询/余额明细与账户状态",
+   "scope_in": [
+    "查余额",
+    "明细",
+    "账单",
+    "密码锁定"
+   ],
+   "scope_out": [
+    "转账",
+    "理财",
+    "挂失"
+   ],
+   "scenes": [
+    {
+     "scene_type": "DO_QUERY",
+     "semantic_definition": {
+      "intentType": "QUERY",
+      "userGoal": "获知账户余额明细或解除账户异常",
+      "description": "查询余额、明细、账单流水，或处理密码输错锁定、账户状态异常。涵盖 duel_chat 五类中的 account 类全量诉求。",
+      "confusableIntents": [
+       "demo.transfer.peer#QUERY"
+      ],
+      "disambiguationHints": [
+       "问自己账户的钱和账的归本场景",
+       "问转账规则限额的归转账域查询场景",
+       "怀疑卡片被盗刷的归挂失止付域"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "查下我卡里余额",
+       "卡里余额还有多少",
+       "查一下明细",
+       "卡里怎么少了200块",
+       "帮我查流水",
+       "信用卡账单日是几号",
+       "密码输错三次被锁了",
+       "账户是不是被冻结了",
+       "怎么查交易记录",
+       "上个月账单"
+      ],
+      "recallTerms": [
+       "余额",
+       "明细",
+       "账单",
+       "流水",
+       "密码",
+       "锁定"
+      ],
+      "recallTermSets": [
+       [
+        "查",
+        "余额"
+       ],
+       [
+        "卡里",
+        "少"
+       ],
+       [
+        "密码",
+        "锁"
+       ]
+      ],
+      "semanticView": [
+       "账户资金",
+       "交易记录",
+       "账户异常"
+      ],
+      "objectView": [
+       "余额",
+       "明细",
+       "账单",
+       "密码",
+       "账户状态"
+      ],
+      "actionView": [
+       "查",
+       "看",
+       "问",
+       "解锁"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "转账限额多少",
+       "我的理财收益多少",
+       "卡丢了要挂失",
+       "你们乱扣费我要投诉"
+      ]
+     },
+     "probe": {
+      "q": "是查询余额、明细、账单，或账户状态/密码/锁定问题？",
+      "ct": "查询余额明细账单流水，或账户状态异常、密码锁定等问题",
+      "cf": "与账户信息查询或状态异常无关（转账汇款、理财咨询、挂失、投诉都不是）"
+     }
+    }
+   ]
+  },
+  {
+   "id": "demo.loss_fraud",
+   "title": "挂失止付",
+   "node_role": "domain",
+   "parent_intent_id": "demo.root",
+   "path": "挂失止付",
+   "scope_in": [
+    "挂失",
+    "丢卡",
+    "盗刷",
+    "止付",
+    "冻结",
+    "诈骗",
+    "安全账户",
+    "陌生电话"
+   ],
+   "scope_out": [
+    "转账汇款",
+    "理财",
+    "账户查询",
+    "投诉"
+   ],
+   "navigationTerms": [
+    "挂失",
+    "止付",
+    "冻结",
+    "盗刷",
+    "诈骗"
+   ],
+   "domainGate": {
+    "question": "涉及卡片挂失、盗刷、止付、冻结，或诈骗防护？",
+    "semantic_definition": {
+     "userGoal": "挂失卡片或防范欺诈",
+     "description": "卡片丢失挂失、怀疑盗刷请求止付冻结，或疑似被诈骗需防护提醒。"
+    }
+   }
+  },
+  {
+   "id": "demo.loss_fraud.protect",
+   "title": "挂失止付与防诈",
+   "node_role": "leaf",
+   "parent_intent_id": "demo.loss_fraud",
+   "path": "挂失止付/挂失止付与防诈",
+   "scope_in": [
+    "挂失",
+    "止付",
+    "冻结",
+    "盗刷",
+    "疑似诈骗"
+   ],
+   "scope_out": [
+    "正常转账",
+    "查余额"
+   ],
+   "scenes": [
+    {
+     "scene_type": "DO",
+     "semantic_definition": {
+      "intentType": "DO",
+      "userGoal": "紧急挂失或防范欺诈损失",
+      "description": "卡片丢失挂失冻结、怀疑被盗刷请求止付，或陌生来电/安全账户等疑似诈骗防护。涵盖 duel_chat 五类中的 loss_fraud 类全量诉求。",
+      "confusableIntents": [
+       "demo.transfer.peer#DO"
+      ],
+      "disambiguationHints": [
+       "客户主动挂失/止付/防诈归本场景",
+       "被诱导要转钱到安全账户的归本场景（诈骗防护优先）",
+       "客户正常主动转账的归转账域"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "我的银行卡丢了赶紧挂失",
+       "卡丢了帮我冻结",
+       "怀疑盗刷马上止付",
+       "卡被盗刷了",
+       "刚才有个陌生电话让我转安全账户",
+       "是不是诈骗",
+       "帮我紧急止付",
+       "银行卡丢了怎么挂失"
+      ],
+      "recallTerms": [
+       "挂失",
+       "丢了",
+       "盗刷",
+       "止付",
+       "冻结",
+       "安全账户",
+       "陌生电话"
+      ],
+      "recallTermSets": [
+       [
+        "卡",
+        "丢"
+       ],
+       [
+        "盗刷"
+       ],
+       [
+        "安全账户"
+       ],
+       [
+        "陌生电话"
+       ]
+      ],
+      "semanticView": [
+       "卡片安全",
+       "资金损失风险",
+       "欺诈防护"
+      ],
+      "objectView": [
+       "银行卡",
+       "被盗资金",
+       "诈骗来电"
+      ],
+      "actionView": [
+       "挂失",
+       "止付",
+       "冻结",
+       "防"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "帮我给朋友转五千",
+       "查下余额",
+       "密码被锁了怎么解锁"
+      ]
+     },
+     "probe": {
+      "q": "涉及卡片挂失、盗刷、止付、冻结，或诈骗防护？",
+      "ct": "涉及卡片挂失、盗刷、止付、冻结，或疑似被诈骗（如陌生来电要求转账、安全账户）",
+      "cf": "不涉及卡片安全或诈骗风险（正常转账、查余额、理财咨询都不是）"
+     }
+    }
+   ]
+  },
+  {
+   "id": "demo.complaint",
+   "title": "投诉纠纷",
+   "node_role": "domain",
+   "parent_intent_id": "demo.root",
+   "path": "投诉纠纷",
+   "scope_in": [
+    "投诉",
+    "曝光",
+    "态度差",
+    "乱扣费",
+    "赔偿",
+    "给说法",
+    "纠纷"
+   ],
+   "scope_out": [
+    "正常业务咨询",
+    "转账",
+    "理财",
+    "查余额",
+    "挂失"
+   ],
+   "navigationTerms": [
+    "投诉",
+    "赔偿",
+    "纠纷",
+    "举报"
+   ],
+   "domainGate": {
+    "question": "是对服务、收费或处理结果表达不满投诉？",
+    "semantic_definition": {
+     "userGoal": "表达不满并要求解决",
+     "description": "对银行服务、收费、处理结果表达不满、抱怨、要求赔偿或说法。仅当消息含不满情绪时成立，正常业务咨询不属于本域。"
+    }
+   }
+  },
+  {
+   "id": "demo.complaint.emotion",
+   "title": "不满投诉",
+   "node_role": "leaf",
+   "parent_intent_id": "demo.complaint",
+   "path": "投诉纠纷/不满投诉",
+   "scope_in": [
+    "投诉",
+    "曝光",
+    "态度差",
+    "乱扣费",
+    "赔偿"
+   ],
+   "scope_out": [
+    "正常咨询办理"
+   ],
+   "scenes": [
+    {
+     "scene_type": "DO",
+     "semantic_definition": {
+      "intentType": "DO",
+      "userGoal": "投诉并要求解决",
+      "description": "客户表达不满或投诉：消息出现不满情绪词（投诉、曝光、态度差、乱扣费、给说法、赔偿、骗人），对服务或处理结果有怨气。R40 V6 排他判据回写。",
+      "confusableIntents": [
+       "demo.wealth.buy#DO_QUERY"
+      ],
+      "disambiguationHints": [
+       "必须出现不满情绪词才归本场景",
+       "推荐理财、查余额、转账、挂失等正常咨询办理不属于本场景",
+       "含业务词但无情绪词的归对应业务域"
+      ]
+     },
+     "retrieval_profile": {
+      "aliases": [
+       "我要投诉",
+       "你们什么态度",
+       "乱扣费必须给说法",
+       "再不解决就曝光你们",
+       "要求赔偿",
+       "骗人的吧",
+       "必须给个说法",
+       "服务太差了"
+      ],
+      "recallTerms": [
+       "投诉",
+       "曝光",
+       "态度",
+       "乱扣费",
+       "赔偿",
+       "说法"
+      ],
+      "recallTermSets": [
+       [
+        "投诉"
+       ],
+       [
+        "曝光"
+       ],
+       [
+        "给",
+        "说法"
+       ],
+       [
+        "乱扣费"
+       ]
+      ],
+      "semanticView": [
+       "怨气",
+       "不满",
+       "维权"
+      ],
+      "objectView": [
+       "服务",
+       "收费",
+       "处理结果"
+      ],
+      "actionView": [
+       "投诉",
+       "曝光",
+       "要求",
+       "赔偿"
+      ],
+      "viewWeights": {
+       "utterance": 0.28,
+       "semantic": 0.2,
+       "object": 0.18,
+       "action": 0.16
+      },
+      "negativeExamples": [
+       "推荐理财吧",
+       "查下我卡里余额",
+       "帮我转五千块",
+       "我的卡丢了赶紧挂失"
+      ]
+     },
+     "probe": {
+      "q": "是对服务态度、乱收费或处理结果的不满投诉？",
+      "ct": "客户表达不满或投诉：消息里出现不满情绪词（投诉、炸号、曝光、态度差、乱扣费、给说法、赔偿、骗人、曝光你们），对服务或处理结果有怨气",
+      "cf": "消息是正常业务咨询或办理（如推荐理财、查余额、转账、挂失），没有任何不满情绪词"
+     }
+    }
+   ]
+  }
+ ],
+ "relations": [
+  {
+   "id": "rel.transfer.confusable.loss_fraud",
+   "type": "confusable_with",
+   "from": "demo.transfer.peer#DO",
+   "to": "demo.loss_fraud.protect#DO",
+   "evidence": "正常转账与被诈骗诱导转账在『转钱』词面上高度混淆，R40 实测『帮我给张三转五千块』被 loss_fraud 概率咬住，登记混淆对供门控对照",
+   "owner": "bank-team",
+   "version": "bank5"
+  },
+  {
+   "id": "rel.wealth.confusable.complaint",
+   "type": "confusable_with",
+   "from": "demo.wealth.buy#DO_QUERY",
+   "to": "demo.complaint.emotion#DO",
+   "evidence": "R40 实证：推荐理财类请求语气被投诉判据『要求解决』泛化命中 0.83，V6 排他修复后仍需登记为混淆对持续监控",
+   "owner": "bank-team",
+   "version": "bank5"
+  },
+  {
+   "id": "rel.account.confusable.transfer",
+   "type": "confusable_with",
+   "from": "demo.account.query#DO_QUERY",
+   "to": "demo.transfer.peer#QUERY",
+   "evidence": "查余额与转账规则咨询共享『查/钱』词面，混淆对供门控对照",
+   "owner": "bank-team",
+   "version": "bank5"
+  },
+  {
+   "id": "rel.utility.confusable.account",
+   "type": "confusable_with",
+   "from": "demo.utility.pay#DO_QUERY",
+   "to": "demo.account.query#DO_QUERY",
+   "evidence": "查缴费记录与查账户明细共享『查/费/账单』词面，混淆对供门控对照",
+   "owner": "bank-team",
+   "version": "bank6"
+  },
+  {
+   "id": "rel.utility.confusable.complaint",
+   "type": "confusable_with",
+   "from": "demo.utility.pay#DO_QUERY",
+   "to": "demo.complaint.emotion#DO",
+   "evidence": "utility.cf 自身提及『对扣费有异议的投诉（归投诉纠纷域）』——缴费记录中的异常扣费容易触发投诉情绪词，词面交叉需登记混淆对供门控对照",
+   "owner": "bank-team",
+   "version": "bank6"
+  }
+ ],
+ "resourceRegistries": {
+  "capabilities": [
+   {
+    "id": "demo.transfer.exec",
+    "title": "转账执行",
+    "kind": "workflow",
+    "riskLevel": "L3",
+    "writeOperation": true,
+    "provider": {
+     "workflowId": "wf-transfer-v1"
+    }
+   },
+   {
+    "id": "demo.wealth.buy.exec",
+    "title": "理财购买",
+    "kind": "workflow",
+    "riskLevel": "L2",
+    "writeOperation": true,
+    "provider": {
+     "workflowId": "wf-wealth-purchase-v1"
+    }
+   },
+   {
+    "id": "demo.account.query.exec",
+    "title": "账户查询",
+    "kind": "capability",
+    "riskLevel": "L1",
+    "writeOperation": false,
+    "provider": {
+     "capabilityId": "cap-account-query"
+    }
+   },
+   {
+    "id": "demo.loss_fraud.exec",
+    "title": "紧急挂失止付",
+    "kind": "workflow",
+    "riskLevel": "L3",
+    "writeOperation": true,
+    "provider": {
+     "workflowId": "wf-loss-report-v1"
+    }
+   },
+   {
+    "id": "demo.complaint.exec",
+    "title": "投诉工单",
+    "kind": "workflow",
+    "riskLevel": "L2",
+    "writeOperation": true,
+    "provider": {
+     "workflowId": "wf-complaint-v1"
+    }
+   }
+  ],
+  "faqs": [
+   {
+    "id": "faq.transfer.fee",
+    "question": "手机银行转账手续费收多少？",
+    "answer": "本行手机银行转账免手续费，跨行转账按金额分档收费，以页面提示为准。",
+    "domain": "demo.transfer"
+   },
+   {
+    "id": "faq.transfer.limit",
+    "question": "转账限额是多少？",
+    "answer": "默认单笔5万、单日20万，可在安全中心调整，调整后实时生效。",
+    "domain": "demo.transfer"
+   },
+   {
+    "id": "faq.wealth.threshold",
+    "question": "理财产品起购金额是多少？",
+    "answer": "稳享系列1元起购（1分购），部分专属产品10万元起购，以产品说明书为准。",
+    "domain": "demo.wealth"
+   },
+   {
+    "id": "faq.wealth.risk",
+    "question": "理财有风险吗？",
+    "answer": "理财产品不保本，业绩比较基准不代表未来收益，购买前请完成风险测评。",
+    "domain": "demo.wealth"
+   },
+   {
+    "id": "faq.account.locked",
+    "question": "密码锁定了怎么办？",
+    "answer": "密码连续输错3次会锁定，可在登录页重置，或携带身份证到网点办理解锁。",
+    "domain": "demo.account"
+   },
+   {
+    "id": "faq.loss.frozen",
+    "question": "挂失后卡片还能用吗？",
+    "answer": "挂失立即生效，卡片暂停所有交易；补办新卡后旧卡作废。",
+    "domain": "demo.loss_fraud"
+   },
+   {
+    "id": "faq.complaint.channel",
+    "question": "投诉多久有回复？",
+    "answer": "投诉工单24小时内响应，3个工作日内给出处理结果，可随时查询进度。",
+    "domain": "demo.complaint"
+   },
+   {
+    "id": "faq.utility.water",
+    "question": "手机银行怎么交水费？",
+    "answer": "首页进入【生活缴费】，选择水费，输入缴费户号即可缴纳，支持代扣签约。",
+    "domain": "demo.utility"
+   },
+   {
+    "id": "faq.utility.mobile",
+    "question": "话费充值多久到账？",
+    "answer": "手机银行话费充值一般为实时到账，高峰期不超过 10 分钟，以运营商入账为准。",
+    "domain": "demo.utility"
+   }
+  ],
+  "policies": [
+   {
+    "id": "pol.routing.gate",
+    "title": "消息路由门控策略",
+    "rules": [
+     "top1 概率 < 0.5 → 升级 GLM 复核",
+     "top1-top2 gap < 0.2 → 升级 GLM 复核",
+     "命中涉诈词（安全账户/公检法/陌生电话/中奖/盗刷/止付/洗钱/解冻费/保证金/验证码）→ 强制升级",
+     "升级路径以 GLM 结论为最终路由；直通路径以 Jev 结论为最终路由",
+     "Jev 服务失败 → 降级为 GLM 单引擎；GLM 失败 → 维持 Jev 直通结论"
+    ]
+   }
+  ],
+  "skillBindings": []
+ }
+}

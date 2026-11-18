@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fin-Jev 演示索引</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e4e6ea; --line-2:#eef0f2;
+  --bg:#f6f6f4; --card:#ffffff;
+  --jev:#0f6e56; --jev-bg:#ecf6f2;
+  --glm:#534ab7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px;margin:0 auto;padding:48px 24px 64px;}
+h1{font-size:24px;font-weight:700;margin-bottom:4px;}
+.subtitle{color:var(--ink-3);font-size:13px;margin-bottom:32px;}
+.card{
+  display:block;text-decoration:none;color:inherit;
+  background:var(--card);border:0.5px solid var(--line-1);border-radius:10px;
+  padding:20px 24px;margin-bottom:12px;
+  transition:border-color .15s,box-shadow .15s;
+}
+.card:hover{border-color:var(--jev);box-shadow:0 2px 12px rgba(15,110,86,.08);}
+.card-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.card-tag{
+  font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;
+  white-space:nowrap;
+}
+.tag-main{background:var(--jev-bg);color:var(--jev);}
+.tag-glm{background:var(--glm-bg);color:var(--glm);}
+.tag-pipeline{background:var(--amber-bg);color:var(--amber);}
+.tag-lab{background:var(--line-2);color:var(--ink-2);}
+.card-title{font-size:15px;font-weight:600;}
+.card-desc{color:var(--ink-3);font-size:12px;}
+.hint{margin-top:24px;padding-top:16px;border-top:0.5px solid var(--line-2);color:var(--ink-4);font-size:11px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fin-Jev 演示索引</h1>
+  <p class="subtitle">Jev noul 阵列 + GLM-5.3-Flash 双引擎金融意图决策 — 5 个交互式演示</p>
+
+  <a class="card" href="duel_chat.html">
+    <div class="card-head">
+      <span class="card-tag tag-main">主推</span>
+      <span class="card-title">对话式双引擎测试台</span>
+    </div>
+    <p class="card-desc">完整流水线交互式聊天：图遍历召回 → 向量选题 → Jev 并行是非题 → 三层门控 → GLM 复核/影子对照，实时展示每阶段输入输出</p>
+  </a>
+
+  <a class="card" href="jev_pipeline_demo.html">
+    <div class="card-head">
+      <span class="card-tag tag-pipeline">流水线</span>
+      <span class="card-title">Jev 决策流水线 · noul 探针阵列</span>
+    </div>
+    <p class="card-desc">生动演示 Jev 从输入到决策的完整链路：探针注入 → 并行打分 → 概率校准 → 门控升级，含实时决策回放</p>
+  </a>
+
+  <a class="card" href="duel_demo.html">
+    <div class="card-head">
+      <span class="card-tag tag-main">对决</span>
+      <span class="card-title">双引擎实时运行对比</span>
+    </div>
+    <p class="card-desc">Jev noul 阵列（~20ms）vs GLM-5.3-Flash（2.7~4.4s）同题同答实时对比，直观展示快慢差异与结果一致性</p>
+  </a>
+
+  <a class="card" href="jev_vs_llm_demo.html">
+    <div class="card-head">
+      <span class="card-tag tag-lab">场景</span>
+      <span class="card-title">Jev vs LLM 金融场景对比</span>
+    </div>
+    <p class="card-desc">三大金融场景实测：意图识别（客服路由）、转账反诈门控（安全账户拦截）、理财产品匹配评分</p>
+  </a>
+
+  <a class="card" href="kb_lab.html">
+    <div class="card-head">
+      <span class="card-tag tag-lab">实验</span>
+      <span class="card-title">知识输入对比实验室</span>
+    </div>
+    <p class="card-desc">三种问法（直接分类 / noul 是非题 / 上下文+是非题）的实测对比，验证并行是非题阵列的准确率提升</p>
+  </a>
+
+  <p class="hint">提示：主推的「对话式双引擎测试台」需先运行 <code>python jev_proxy.py</code> 启动本地代理（端口 8787）后访问 http://127.0.0.1:8787/demos/duel_chat.html 。其他演示可直接 file:// 打开。</p>
+</div>
+</body>
+</html>

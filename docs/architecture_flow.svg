@@ -1,0 +1,72 @@
+<svg viewBox="0 0 680 620" width="100%" role="img" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, Microsoft YaHei, Segoe UI, system-ui, sans-serif">
+  <title>Fin-Jev 双引擎意图路由架构</title>
+  <desc>客户消息经双视图选题层进入 Jev 是非题阵列，三层门控决定直通路由或升级 GLM 精判，知识层唯一事实源经编译器向下供两引擎消费</desc>
+  <defs>
+    <marker id="arwN" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#8A8D91" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arwB" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#185FA5" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arwR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#A03028" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="680" height="620" fill="#FFFFFF"/>
+  <text x="40" y="34" font-size="15" font-weight="500" fill="#1F2329">Fin-Jev 意图路由：一条消息的完整路径</text>
+
+  <rect x="40" y="48" width="200" height="64" rx="8" fill="#F7F6F3" stroke="#D8D6CD" stroke-width="1"/>
+  <text x="140" y="70" font-size="12" font-weight="500" fill="#1F2329" text-anchor="middle" dominant-baseline="central">知识层 bank_graph.json</text>
+  <text x="140" y="92" font-size="11" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">6 域 · 199 词面 · 唯一人工维护</text>
+  <path d="M200 112 L200 144" fill="none" stroke="#8A8D91" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arwN)"/>
+  <text x="208" y="132" font-size="11" fill="#6B6D70">编译</text>
+
+  <rect x="260" y="60" width="160" height="42" rx="21" fill="#EAF2FB" stroke="#185FA5" stroke-width="1"/>
+  <text x="340" y="81" font-size="13" font-weight="500" fill="#0F3D6E" text-anchor="middle" dominant-baseline="central">客户消息</text>
+  <path d="M340 106 L340 142" fill="none" stroke="#8A8D91" stroke-width="1.5" marker-end="url(#arwN)"/>
+
+  <rect x="150" y="150" width="380" height="76" rx="10" fill="#EAF2FB" stroke="#185FA5" stroke-width="1"/>
+  <text x="340" y="172" font-size="13" font-weight="500" fill="#0F3D6E" text-anchor="middle" dominant-baseline="central">选题层：图谱视图 ∪ 向量视图</text>
+  <text x="340" y="191" font-size="12" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">词面/泛化锚定（图谱） | OntoMind dense top3 → 域映射（向量）</text>
+  <text x="340" y="209" font-size="12" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">并集 = Jev 题白名单（2~3 题；无信号全量 6 题）</text>
+  <text x="538" y="193" font-size="11" fill="#6B6D70">0~80ms</text>
+  <path d="M340 226 L340 248" fill="none" stroke="#8A8D91" stroke-width="1.5" marker-end="url(#arwN)"/>
+
+  <rect x="150" y="252" width="380" height="76" rx="10" fill="#EAF2FB" stroke="#185FA5" stroke-width="1"/>
+  <text x="340" y="274" font-size="13" font-weight="500" fill="#0F3D6E" text-anchor="middle" dominant-baseline="central">Jev noul 阵列（1 次请求 · 并行打分）</text>
+  <text x="340" y="293" font-size="12" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">bocha-jev-v1 · 每意图一道是非题 · 独立 noul 概率</text>
+  <text x="340" y="311" font-size="12" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">服务端推理 21.7ms（inference_ms 口径）</text>
+  <text x="538" y="295" font-size="11" fill="#185FA5">~22ms</text>
+  <path d="M340 328 L340 348" fill="none" stroke="#8A8D91" stroke-width="1.5" marker-end="url(#arwN)"/>
+
+  <rect x="150" y="352" width="380" height="92" rx="10" fill="#F7F6F3" stroke="#D8D6CD" stroke-width="1"/>
+  <text x="340" y="372" font-size="13" font-weight="500" fill="#1F2329" text-anchor="middle" dominant-baseline="central">三层门控（本地仲裁 · 零 LLM 调用）</text>
+  <rect x="168" y="386" width="106" height="40" rx="6" fill="#FFFFFF" stroke="#DCDAD1" stroke-width="1"/>
+  <text x="221" y="402" font-size="12" font-weight="500" fill="#1F2329" text-anchor="middle" dominant-baseline="central">top1 &lt; 0.5</text>
+  <text x="221" y="418" font-size="11" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">置信不足</text>
+  <rect x="287" y="386" width="106" height="40" rx="6" fill="#FFFFFF" stroke="#DCDAD1" stroke-width="1"/>
+  <text x="340" y="402" font-size="12" font-weight="500" fill="#1F2329" text-anchor="middle" dominant-baseline="central">gap &lt; 0.2</text>
+  <text x="340" y="418" font-size="11" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">前两名难分</text>
+  <rect x="406" y="386" width="106" height="40" rx="6" fill="#FBEDEC" stroke="#B03A34" stroke-width="1"/>
+  <text x="459" y="402" font-size="12" font-weight="500" fill="#A03028" text-anchor="middle" dominant-baseline="central">涉诈词命中</text>
+  <text x="459" y="418" font-size="11" fill="#A03028" text-anchor="middle" dominant-baseline="central">安全优先</text>
+
+  <path d="M340 444 L340 482" fill="none" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arwB)"/>
+  <text x="352" y="468" font-size="12" fill="#185FA5">三门全过 → 直通</text>
+
+  <path d="M470 444 L470 466 L600 466 L600 482" fill="none" stroke="#A03028" stroke-width="1.5" marker-end="url(#arwR)"/>
+  <text x="478" y="461" font-size="12" fill="#A03028">任一命中 → 升级</text>
+
+  <rect x="200" y="486" width="260" height="56" rx="10" fill="#EAF2FB" stroke="#185FA5" stroke-width="1"/>
+  <text x="330" y="508" font-size="13" font-weight="500" fill="#0F3D6E" text-anchor="middle" dominant-baseline="central">路由落定（以 Jev 为准）</text>
+  <text x="330" y="527" font-size="12" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">GLM 影子对照 · 域 FAQ 挂载</text>
+  <text x="468" y="518" font-size="11" fill="#185FA5">~0.1s</text>
+
+  <rect x="490" y="486" width="140" height="56" rx="10" fill="#FBEDEC" stroke="#B03A34" stroke-width="1"/>
+  <text x="560" y="508" font-size="13" font-weight="500" fill="#A03028" text-anchor="middle" dominant-baseline="central">GLM 候选集精判</text>
+  <text x="560" y="527" font-size="11" fill="#6B6D70" text-anchor="middle" dominant-baseline="central">top3 判据 · 可否决回退</text>
+  <text x="490" y="564" font-size="11" fill="#A03028">2.7~4.4s · 升级路径以 GLM 为准</text>
+
+  <text x="40" y="600" font-size="11" fill="#6B6D70">延迟均为本机真实调用实测（口径与样本见 docs/experiments.md）；选题白名单上限 3 题为拍头值（已知限制 #15）</text>
+</svg>

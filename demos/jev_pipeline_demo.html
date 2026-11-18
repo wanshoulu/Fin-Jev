@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jev 决策流水线 · 生动演示</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f6f7f9; color:#1f2329; min-height:100vh; padding:28px 16px 60px; }
+.stage { max-width:1080px; margin:0 auto; }
+.hd { text-align:center; margin-bottom:6px; }
+.hd h1 { font-size:20px; font-weight:500; letter-spacing:0.5px; }
+.hd p { font-size:13px; color:#6b7078; margin-top:4px; }
+
+.pipline { display:flex; align-items:stretch; gap:0; margin:26px 0 18px; }
+.node { flex:1; background:#fff; border:0.5px solid #d8dbe0; border-radius:14px; padding:16px 14px 14px; position:relative; transition:all .25s; min-width:0; }
+.node.active { border-color:#0f6e56; background:#f3faf7; transform:translateY(-3px); }
+.node.done { border-color:#b7e2d2; }
+.node .idx { width:26px; height:26px; border-radius:50%; background:#eef0f3; color:#6b7078; font-size:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; font-weight:500; transition:all .2s; }
+.node.active .idx { background:#0f6e56; color:#fff; }
+.node.done .idx { background:#c9eadb; color:#085041; }
+.node h3 { font-size:13px; font-weight:500; text-align:center; margin-bottom:3px; }
+.node .d { font-size:11.5px; color:#8a8f99; text-align:center; line-height:1.45; }
+.conn { width:44px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.conn svg { width:100%; overflow:visible; }
+.conn .line { stroke:#c4c8cf; stroke-width:1.6; stroke-dasharray:5 4; fill:none; }
+.node.active + .conn .line { stroke:#0f6e56; animation:dash .7s linear infinite; }
+@keyframes dash { to { stroke-dashoffset:-9; } }
+@media (prefers-reduced-motion: reduce) { .conn .line { animation:none; } }
+
+.screen { background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; padding:22px 24px; margin-top:18px; }
+.screen h2 { font-size:15px; font-weight:500; margin-bottom:2px; }
+.screen .sub2 { font-size:12px; color:#8a8f99; margin-bottom:16px; }
+.chatbox { background:#f6f7f9; border-radius:12px; padding:14px 16px; font-size:14px; line-height:1.65; min-height:58px; position:relative; }
+.chatbox .cursor { display:inline-block; width:2px; height:16px; background:#0f6e56; vertical-align:-2px; margin-left:2px; animation:blink .8s step-end infinite; }
+@keyframes blink { 50% { opacity:0; } }
+.typing { font-size:11px; color:#0f6e56; margin-top:6px; height:14px; }
+
+.probes { display:flex; flex-direction:column; gap:9px; margin-top:4px; }
+.probe { display:flex; align-items:center; gap:10px; opacity:0; transform:translateX(-14px); transition:all .4s; }
+.probe.in { opacity:1; transform:none; }
+.probe .q { flex:0 0 220px; font-size:12px; color:#3b4048; background:#f6f7f9; border-radius:8px; padding:7px 11px; }
+.probe .track { flex:1; height:20px; background:#eef0f3; border-radius:6px; overflow:hidden; }
+.probe .fill { height:100%; width:0%; border-radius:6px; transition:width .55s cubic-bezier(.25,.8,.35,1); }
+.probe .pv { flex:0 0 46px; text-align:right; font-size:12px; font-variant-numeric:tabular-nums; color:#3b4048; }
+.probe.win .fill { background:#1d9e75; }
+.probe.win .pv { color:#0f6e56; font-weight:500; }
+.probe.lose .fill { background:#c9cdd4; }
+
+.route { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; }
+.gate { border-radius:12px; padding:14px 20px; text-align:center; flex:1; max-width:300px; opacity:.35; transition:all .3s; transform:scale(.97); }
+.gate.lit { opacity:1; transform:none; }
+.gate .g-t { font-size:14px; font-weight:500; }
+.gate .g-d { font-size:11.5px; margin-top:2px; }
+.gate.go { background:#eaf3de; color:#27500a; }
+.gate.escalate { background:#faeeda; color:#633806; }
+.verdict { text-align:center; margin-top:16px; font-size:14px; min-height:22px; }
+.verdict b { font-weight:500; }
+
+.latency { text-align:center; margin-top:14px; font-size:12px; color:#8a8f99; font-variant-numeric:tabular-nums; }
+.latency b { color:#0f6e56; font-weight:500; }
+
+.ctrl { display:flex; justify-content:center; gap:10px; margin-top:20px; flex-wrap:wrap; }
+.btn { border:0.5px solid #c4c8cf; background:#fff; color:#1f2329; border-radius:9px; padding:9px 22px; font-size:13px; cursor:pointer; transition:all .15s; }
+.btn:hover { border-color:#0f6e56; color:#0f6e56; }
+.btn.pri { background:#0f6e56; border-color:#0f6e56; color:#fff; }
+.btn.pri:hover { background:#0a5540; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+
+.cases { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:9px; margin-top:10px; }
+.case { border:0.5px solid #d8dbe0; border-radius:10px; padding:9px 12px; font-size:12px; cursor:pointer; transition:all .15s; background:#fff; }
+.case:hover { border-color:#0f6e56; }
+.case.on { border-color:#0f6e56; background:#f3faf7; }
+.case .cv { color:#8a8f99; font-size:11px; margin-top:2px; }
+.arch { margin-top:22px; background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; padding:20px 24px; }
+.arch h2 { font-size:15px; font-weight:500; margin-bottom:14px; text-align:center; }
+.flow { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; }
+.fbox { border-radius:10px; padding:10px 16px; font-size:12.5px; text-align:center; }
+.fbox small { display:block; font-size:11px; opacity:.75; margin-top:2px; }
+.farrow { color:#9aa0a9; font-size:15px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hd">
+    <h1>Jev 决策流水线 · noul 探针阵列</h1>
+    <p>一条客服消息进来，5 个独立是非判断并行发射，毫秒级命中意图 —— 下方为真实调用数据回放</p>
+  </div>
+
+  <div class="pipline">
+    <div class="node" id="n1"><div class="idx">1</div><h3>消息接入</h3><div class="d">客户消息 / 转账流水</div></div>
+    <div class="conn"><svg viewBox="0 0 44 12"><path class="line" d="M2 6 H40" marker-end="url(#ah)"/></svg></div>
+    <div class="node" id="n2"><div class="idx">2</div><h3>noul 阵列</h3><div class="d">5 个是非判断并行</div></div>
+    <div class="conn"><svg viewBox="0 0 44 12"><path class="line" d="M2 6 H40"/></svg></div>
+    <div class="node" id="n3"><div class="idx">3</div><h3>概率聚合</h3><div class="d">argmax + 置信差检验</div></div>
+    <div class="conn"><svg viewBox="0 0 44 12"><path class="line" d="M2 6 H40"/></svg></div>
+    <div class="node" id="n4"><div class="idx">4</div><h3>路由执行</h3><div class="d">直接路由 / 升级 LLM</div></div>
+  </div>
+
+  <div class="screen">
+    <h2>实时决策回放</h2>
+    <div class="sub2">选择一条样本，或输入任意消息观察流水线运行</div>
+    <div class="chatbox"><span id="typed"></span><span class="cursor" id="cur" style="display:none"></span></div>
+    <div class="typing" id="typing"></div>
+
+    <div class="probes" id="probes"></div>
+
+    <div class="route">
+      <div class="gate go" id="g1"><div class="g-t">直接路由</div><div class="g-d">top1 ≥ 0.8 且领先 ≥ 0.2</div></div>
+      <div class="gate escalate" id="g2"><div class="g-t">升级 LLM 复核</div><div class="g-d">概率接近 / 涉诈关键词</div></div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="latency" id="lat"></div>
+
+    <div class="cases" id="cases"></div>
+    <div class="ctrl">
+      <button class="btn pri" id="playBtn" onclick="play()">▶ 运行流水线</button>
+      <button class="btn" onclick="autoRun()">自动循环演示</button>
+    </div>
+  </div>
+
+  <div class="arch">
+    <h2>生产架构：探针 + 升级 + 兜底</h2>
+    <div class="flow">
+      <div class="fbox" style="background:#eef0f3;">客户消息</div>
+      <div class="farrow">→</div>
+      <div class="fbox" style="background:#e1f5ee;color:#085041;">Jev noul 探针阵列<small>127ms · 5问并行 · 免费额度</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox" style="background:#eaf3de;color:#27500a;">高置信 → 直接路由<small>~80% 流量</small></div>
+      <div class="farrow">/</div>
+      <div class="fbox" style="background:#faeeda;color:#633806;">模糊 → LLM 复核<small>~1s · 结构化输出</small></div>
+      <div class="farrow">→</div>
+      <div class="fbox" style="background:#e6f1fb;color:#0c447c;">执行留痕<small>规则门控 · 审计日志</small></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var PROBES = [
+  { key:"transfer",   q:"这条消息是想把钱转给别人吗？",     color:"#378ADD" },
+  { key:"wealth",     q:"这条消息与购买理财/基金有关吗？",   color:"#7F77DD" },
+  { key:"account",    q:"这是查询余额明细/账户状态吗？",     color:"#BA7517" },
+  { key:"loss_fraud", q:"这涉及挂失、盗刷或诈骗防护吗？",     color:"#D85A30" },
+  { key:"complaint",  q:"这是对服务/收费的不满投诉吗？",     color:"#888780" }
+];
+var CASES = [
+  { t:"我的银行卡丢了！赶紧帮我挂失冻结", y:"loss_fraud", yn:"挂失止付",
+    p:{transfer:0.24, wealth:0.04, account:0.86, loss_fraud:0.91, complaint:0.82}, ms:131, route:"go" },
+  { t:"帮我给张三转五千块钱，他手机号是138xxxx", y:"transfer", yn:"转账汇款",
+    p:{transfer:0.84, wealth:0.12, account:0.10, loss_fraud:0.56, complaint:0.76}, ms:118, route:"go" },
+  { t:"密码输错三次被锁了，账户是不是有问题", y:"account", yn:"账户查询",
+    p:{transfer:0.02, wealth:0.21, account:0.89, loss_fraud:0.56, complaint:0.56}, ms:124, route:"go" },
+  { t:"刚才有个陌生电话让我把钱转到安全账户", y:"loss_fraud", yn:"挂失止付（诈骗）",
+    p:{transfer:0.91, wealth:0.40, account:0.13, loss_fraud:0.63, complaint:0.81}, ms:129, route:"escalate",
+    note:"top1 transfer(0.91) 与 loss_fraud(0.63) 差距不足且命中涉诈关键词 → 升级 LLM，LLM 识别为典型电诈话术 → 阻断" },
+  { t:"你们客服什么态度，我要投诉，让你们领导来", y:"complaint", yn:"投诉纠纷",
+    p:{transfer:0.04, wealth:0.54, account:0.48, loss_fraud:0.61, complaint:0.88}, ms:122, route:"go" },
+  { t:"定期理财到期了钱会自动回到活期吗", y:"wealth", yn:"理财购买",
+    p:{transfer:0.06, wealth:0.85, account:0.13, loss_fraud:0.26, complaint:0.21}, ms:127, route:"go" }
+];
+var cur = 0, timer = null, timers = [];
+
+function el(id){ return document.getElementById(id); }
+function reset(){
+  timers.forEach(clearTimeout); timers = [];
+  if (timer) { clearInterval(timer); timer = null; }
+  ["n1","n2","n3","n4"].forEach(function(n){ el(n).classList.remove("active","done"); });
+  el("typed").textContent = ""; el("cur").style.display = "none";
+  el("typing").textContent = "";
+  el("probes").innerHTML = ""; el("verdict").innerHTML = ""; el("lat").innerHTML = "";
+  el("g1").classList.remove("lit"); el("g2").classList.remove("lit");
+  el("playBtn").disabled = true;
+}
+function T(fn, ms){ timers.push(setTimeout(fn, ms)); }
+
+function renderCases(){
+  var box = el("cases"); box.innerHTML = "";
+  CASES.forEach(function(c, i){
+    var d = document.createElement("div");
+    d.className = "case" + (i === cur ? " on" : "");
+    d.innerHTML = c.t.slice(0, 16) + (c.t.length > 16 ? "…" : "") + '<div class="cv">正确: ' + c.yn + "</div>";
+    d.onclick = function(){ cur = i; renderCases(); play(); };
+    box.appendChild(d);
+  });
+}
+
+function play(){
+  reset();
+  var c = CASES[cur];
+  el("n1").classList.add("active");
+  el("cur").style.display = "inline-block";
+  el("typing").textContent = "客户消息进入队列…";
+  var i = 0;
+  timer = setInterval(function(){
+    el("typed").textContent = c.t.slice(0, ++i);
+    if (i >= c.t.length){
+      clearInterval(timer); timer = null;
+      el("typing").textContent = "已接入 · 构建 5 个 noul 探针";
+      T(step2, 350);
+    }
+  }, 32);
+
+  function step2(){
+    el("n1").classList.remove("active"); el("n1").classList.add("done");
+    el("n2").classList.add("active");
+    el("typing").textContent = "POST /v1/systemone · 5 questions 并行发射（单请求）";
+    var box = el("probes");
+    PROBES.forEach(function(p, k){
+      var row = document.createElement("div");
+      row.className = "probe";
+      row.innerHTML = '<div class="q">' + p.q + '</div><div class="track"><div class="fill" id="f' + k + '" style="background:' + p.color + '33"></div></div><div class="pv" id="v' + k + '">…</div>';
+      box.appendChild(row);
+      T(function(){ row.classList.add("in"); }, 90 * k);
+    });
+    T(step3, 90 * PROBES.length + 300);
+  }
+
+  function step3(){
+    var c = CASES[cur];
+    PROBES.forEach(function(p, k){
+      var v = c.p[p.key];
+      T(function(){
+        el("f" + k).style.width = Math.round(v * 100) + "%";
+        el("f" + k).style.background = p.color;
+        el("v" + k).textContent = Math.round(v * 100) + "%";
+      }, 120 * k);
+    });
+    T(step4, 120 * PROBES.length + 400);
+  }
+
+  function step4(){
+    el("n2").classList.remove("active"); el("n2").classList.add("done");
+    el("n3").classList.add("active");
+    el("typing").textContent = "argmax 聚合 + 置信差检验";
+    var c = CASES[cur];
+    var sorted = PROBES.map(function(p){ return { k:p.key, v:c.p[p.key] }; }).sort(function(a,b){ return b.v - a.v; });
+    var winK = PROBES.findIndex(function(p){ return p.key === sorted[0].k; });
+    T(function(){
+      var rows = el("probes").children;
+      for (var r = 0; r < rows.length; r++){ rows[r].classList.add(r === winK ? "win" : "lose"); }
+    }, 300);
+    T(step5, 800);
+  }
+
+  function step5(){
+    el("n3").classList.remove("active"); el("n3").classList.add("done");
+    el("n4").classList.add("active");
+    var c = CASES[cur];
+    var gate = el(c.route === "go" ? "g1" : "g2");
+    gate.classList.add("lit");
+    el("typing").textContent = "";
+    var ok = c.route === "go";
+    el("verdict").innerHTML = (c.route === "escalate" && c.note)
+      ? "△ <b>升级复核</b> — " + c.note
+      : "✓ 命中意图 <b>" + c.yn + "</b>" + (ok ? "，直接路由到对应业务队列" : "");
+    el("lat").innerHTML = "端到端延迟 <b>" + c.ms + "ms</b> · 单请求 5 问 · bocha-jev-v1 真实返回值（2026-09-27）";
+    el("playBtn").disabled = false;
+    T(function(){
+      el("n4").classList.remove("active"); el("n4").classList.add("done");
+    }, 500);
+  }
+}
+
+function autoRun(){
+  var runNext = function(){
+    cur = (cur + 1) % CASES.length;
+    renderCases();
+    play();
+    timers.push(setTimeout(runNext, 5200));
+  };
+  runNext();
+}
+
+renderCases();
+</script>
+</body>
+</html>

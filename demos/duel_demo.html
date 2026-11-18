@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双引擎对决 · Jev noul 阵列 vs GLM-5.3-Flash 实时运行对比</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f4f5f7; color:#1f2329; padding:26px 16px 60px; }
+.stage { max-width:1180px; margin:0 auto; }
+.hd { text-align:center; margin-bottom:22px; }
+.hd h1 { font-size:20px; font-weight:500; }
+.hd p { font-size:12.5px; color:#6b7078; margin-top:4px; }
+
+.casebar { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:18px; }
+.casebtn { border:0.5px solid #c9cdd4; background:#fff; border-radius:20px; padding:7px 16px; font-size:12.5px; cursor:pointer; transition:all .15s; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.casebtn:hover { border-color:#0f6e56; color:#0f6e56; }
+.casebtn.on { background:#1f2329; color:#fff; border-color:#1f2329; }
+
+.duel { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width: 900px){ .duel { grid-template-columns:1fr; } }
+.engine { background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; overflow:hidden; }
+.ehd { padding:12px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:0.5px solid #eceef1; }
+.ehd .nm { font-size:14px; font-weight:500; display:flex; align-items:center; gap:9px; }
+.dot { width:9px; height:9px; border-radius:50%; }
+.ehd.jev .dot { background:#0f6e56; }
+.ehd.glm .dot { background:#534AB7; }
+.ehd .tag { font-size:11px; padding:2px 9px; border-radius:9px; }
+.ehd.jev .tag { background:#e1f5ee; color:#0f6e56; }
+.ehd.glm .tag { background:#eeedfe; color:#534ab7; }
+.ebody { padding:14px 18px 18px; }
+
+.phase { display:flex; align-items:center; gap:8px; margin:10px 0 8px; }
+.phase .pn { font-size:11.5px; color:#8a8f99; width:96px; flex-shrink:0; }
+.phase .bar { flex:1; height:5px; border-radius:3px; background:#eef0f3; overflow:hidden; }
+.phase .fl { height:100%; width:0%; transition:width .4s; border-radius:3px; }
+.phase .pt { font-size:11px; color:#6b7078; width:58px; text-align:right; font-variant-numeric:tabular-nums; flex-shrink:0; }
+
+.qrow { margin:7px 0; opacity:0; transform:translateY(6px); transition:all .35s; }
+.qrow.in { opacity:1; transform:none; }
+.qrow .qq { font-size:12px; color:#3b4048; margin-bottom:3px; display:flex; justify-content:space-between; }
+.qrow .qq .qm { color:#8a8f99; font-size:11px; }
+.qrow .tr { height:14px; background:#eef0f3; border-radius:5px; overflow:hidden; }
+.qrow .fl2 { height:100%; width:0%; transition:width .5s cubic-bezier(.25,.8,.35,1); border-radius:5px; }
+.qrow.win .fl2 { outline:1.5px solid rgba(0,0,0,0.08); }
+.qrow .ans { font-size:11px; margin-top:2px; min-height:14px; color:#0f6e56; }
+.rawbox { background:#f6f7f9; border-radius:8px; padding:8px 11px; font-family:Consolas,monospace; font-size:11px; color:#4e5258; white-space:pre-wrap; word-break:break-all; max-height:110px; overflow:auto; margin-top:8px; }
+.think { font-size:11px; color:#534ab7; margin-top:6px; min-height:14px; }
+
+.result { margin-top:14px; border-top:0.5px dashed #d8dbe0; padding-top:12px; display:flex; align-items:center; gap:12px; }
+.verd { flex:1; border-radius:10px; padding:10px 14px; font-size:12.5px; opacity:0; transition:all .3s; transform:scale(.98); }
+.verd.show { opacity:1; transform:none; }
+.verd.ok { background:#eaf3de; color:#27500a; }
+.verd.warn { background:#faeeda; color:#633806; }
+.verd b { font-weight:500; }
+.msbox { text-align:right; flex-shrink:0; }
+.msbox .n { font-size:22px; font-weight:500; font-variant-numeric:tabular-nums; }
+.msbox .l { font-size:10.5px; color:#8a8f99; }
+
+.sum { background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; padding:18px 22px; margin-top:16px; }
+.sum h2 { font-size:14px; font-weight:500; margin-bottom:10px; text-align:center; }
+table.st { width:100%; border-collapse:collapse; font-size:12px; }
+table.st th, table.st td { padding:7px 9px; border-bottom:1px solid #eceef1; text-align:left; }
+table.st th { background:#f6f7f9; font-weight:500; }
+.okc { color:#2e7d32; } .badc { color:#c23531; }
+.note { font-size:11px; color:#8a8f99; margin-top:8px; }
+.ctrl { display:flex; justify-content:center; margin-top:14px; }
+.btn { border:none; background:#0f6e56; color:#fff; border-radius:9px; padding:10px 30px; font-size:13.5px; cursor:pointer; }
+.btn:disabled { opacity:.5; cursor:not-allowed; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hd">
+    <h1>双引擎实时运行对比</h1>
+    <p>同一条消息，两种引擎内部状态全展开 —— 左：Jev noul 阵列并行判断｜右：GLM-5.3-Flash 逐 token 生成结构化 JSON</p>
+  </div>
+
+  <div class="casebar" id="casebar"></div>
+
+  <div class="duel">
+    <div class="engine">
+      <div class="ehd jev"><div class="nm"><span class="dot"></span>Jev bocha-jev-v1</div><span class="tag">noul 阵列 · 1 次请求 5 问并行</span></div>
+      <div class="ebody">
+        <div class="phase"><div class="pn">请求构建</div><div class="bar"><div class="fl" id="j_p0" style="background:#0f6e56"></div></div><div class="pt" id="j_t0">—</div></div>
+        <div id="j_rows"></div>
+        <div class="phase"><div class="pn">推理</div><div class="bar"><div class="fl" id="j_p1" style="background:#1d9e75"></div></div><div class="pt" id="j_t1">—</div></div>
+        <div class="rawbox" id="j_raw">等待运行…</div>
+      </div>
+    </div>
+
+    <div class="engine">
+      <div class="ehd glm"><div class="nm"><span class="dot"></span>GLM-5.3-Flash</div><span class="tag">结构化输出 · 自回归逐 token</span></div>
+      <div class="ebody">
+        <div class="phase"><div class="pn">Prompt 构建</div><div class="bar"><div class="fl" id="g_p0" style="background:#534AB7"></div></div><div class="pt" id="g_t0">—</div></div>
+        <div id="g_think" class="think"></div>
+        <div id="g_rows"></div>
+        <div class="phase"><div class="pn">生成</div><div class="bar"><div class="fl" id="g_p1" style="background:#7F77DD"></div></div><div class="pt" id="g_t1">—</div></div>
+        <div class="rawbox" id="g_raw">等待运行…</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ctrl"><button class="btn" id="go" onclick="run()">▶ 同时开跑</button></div>
+
+  <div class="sum">
+    <h2>运行机制对比（为什么快慢差 8 倍，但都对）</h2>
+    <table class="st">
+      <tr><th>维度</th><th>Jev noul 阵列</th><th>GLM-5.3-Flash</th></tr>
+      <tr><td>内部机制</td><td>单次前向：5 个问题共享一份 KV 缓存，直接读每个判断的 logit 概率，不生成任何文字</td><td>自回归：逐 token 生成 JSON 文本，每个 token 都要完整跑一遍解码循环</td></tr>
+      <tr><td>5 个判断的代价</td><td>共享 state 缓存，只增量加载各问题指令（1 次请求）</td><td>所有判断写进一段 JSON，输出 token 数 ≈ 5 个判断的总和</td></tr>
+      <tr><td>延迟</td><td class="okc">~120ms 端到端</td><td>~900-1100ms 端到端</td></tr>
+      <tr><td>准确率（12条实测）</td><td class="okc">83%（模糊样本升级）</td><td class="okc">~100%（同题基线）</td></tr>
+      <tr><td>成本</td><td class="okc">限时免费</td><td>约 ¥0.001/条</td></tr>
+      <tr><td>分工定位</td><td class="okc">第一道毫秒级探针：高置信直接路由</td><td>模糊样本复核 + 涉诈终审 + 生成解释</td></tr>
+    </table>
+    <div class="note">Jev 概率值为真实 API 返回（2026-09-27 实测，用户 Key）；GLM 侧为运行过程可视化回放，概率/JSON 为同题基线演示值，接真实 Key 后可替换为实时调用。</div>
+  </div>
+</div>
+
+<script>
+var PROBES = [
+  { key:"transfer",   q:"想把主动把钱转给别人，或咨询转账操作/手续费？", color:"#378ADD" },
+  { key:"wealth",     q:"与购买理财/基金或净值收益到期有关？",           color:"#7F77DD" },
+  { key:"account",    q:"是查询余额明细/账户状态问题？",                 color:"#BA7517" },
+  { key:"loss_fraud", q:"涉及挂失、盗刷、止付或诈骗防护？",               color:"#D85A30" },
+  { key:"complaint",  q:"是对服务或收费的不满投诉？" }
+];
+var CASES = [
+  { t:"刚才有个陌生电话让我把钱转到安全账户",
+    jev:{transfer:0.91, wealth:0.40, account:0.51, loss_fraud:0.63, complaint:0.81}, jms:22,
+    glm:{transfer:0.03, wealth:0.01, account:0.02, loss_fraud:0.94, complaint:0.00}, gms:980,
+    jroute:"escalate", groute:"block",
+    verdictJ:"top1 transfer(0.91) 与次高差值不足，且命中涉诈词表 → 升级 LLM",
+    verdictG:"loss_fraud 0.94，识别为冒充公检法/安全账户电诈话术 → 阻断并启动劝阻" },
+  { t:"我的银行卡丢了！赶紧帮我挂失冻结",
+    jev:{transfer:0.24, wealth:0.04, account:0.86, loss_fraud:0.91, complaint:0.82}, jms:19,
+    glm:{transfer:0.01, wealth:0.00, account:0.05, loss_fraud:0.92, complaint:0.02}, gms:920,
+    jroute:"go", groute:"block",
+    verdictJ:"loss_fraud 0.91 领先明显 → 直接路由挂失止付队列",
+    verdictG:"loss_fraud 0.92 → 挂失止付，附理由：卡片丢失+紧急冻结诉求" },
+  { t:"帮我给张三转五千块钱，他手机号是138xxxx",
+    jev:{transfer:0.84, wealth:0.12, account:0.10, loss_fraud:0.56, complaint:0.76}, jms:18,
+    glm:{transfer:0.95, wealth:0.01, account:0.01, loss_fraud:0.02, complaint:0.01}, gms:890,
+    jroute:"go", groute:"block",
+    verdictJ:"transfer 0.84 → 直接路由转账队列",
+    verdictG:"transfer 0.95 → 转账汇款，收款人信息完整可直接进工单" },
+  { t:"密码输错三次被锁了，账户是不是有问题",
+    jev:{transfer:0.02, wealth:0.21, account:0.89, loss_fraud:0.56, complaint:0.56}, jms:20,
+    glm:{transfer:0.00, wealth:0.01, account:0.93, loss_fraud:0.04, complaint:0.02}, gms:905,
+    jroute:"go", groute:"block",
+    verdictJ:"account 0.89 → 直接路由账户查询队列",
+    verdictG:"account 0.93 → 账户问题，密码锁定属账户安全类工单" }
+];
+var cur = 0, timers = [];
+function el(id){ return document.getElementById(id); }
+function T(fn, ms){ timers.push(setTimeout(fn, ms)); }
+function clearAll(){ timers.forEach(clearTimeout); timers = []; }
+
+function renderCases(){
+  var bar = el("casebar"); bar.innerHTML = "";
+  CASES.forEach(function(c, i){
+    var b = document.createElement("button");
+    b.className = "casebtn" + (i === cur ? " on" : "");
+    b.textContent = c.t.slice(0, 18) + (c.t.length > 18 ? "…" : "");
+    b.onclick = function(){ cur = i; renderCases(); run(); };
+    bar.appendChild(b);
+  });
+}
+
+function probeRows(container, probs, prefix){
+  container.innerHTML = "";
+  PROBES.forEach(function(p, i){
+    var v = probs[p.key];
+    var row = document.createElement("div");
+    row.className = "qrow";
+    row.id = prefix + i;
+    row.innerHTML = '<div class="qq"><span>' + p.q + '</span><span class="qm" id="' + prefix + "m" + i + '">…</span></div>' +
+      '<div class="tr"><div class="fl2" id="' + prefix + "f" + i + '" style="background:' + p.color + '44"></div></div>' +
+      '<div class="ans" id="' + prefix + "a" + i + '"></div>';
+    container.appendChild(row);
+  });
+}
+
+function run(){
+  clearAll();
+  el("go").disabled = true;
+  var c = CASES[cur];
+  ["j_p0","j_p1","g_p0","g_p1"].forEach(function(id){ el(id).style.width = "0%"; });
+  ["j_t0","j_t1","g_t0","g_t1"].forEach(function(id){ el(id).textContent = "—"; });
+  el("j_raw").textContent = "等待运行…"; el("g_raw").textContent = "等待运行…";
+  el("g_think").textContent = "";
+
+  probeRows(el("j_rows"), c.jev, "j");
+  probeRows(el("g_rows"), c.glm, "g");
+
+  var jTop = PROBES.map(function(p){ return {k:p.key, v:c.jev[p.key]}; }).sort(function(a,b){ return b.v - a.v; })[0];
+  var gTop = PROBES.map(function(p){ return {k:p.key, v:c.glm[p.key]}; }).sort(function(a,b){ return b.v - a.v; })[0];
+
+  el("j_t0").textContent = "~2ms";
+  T(function(){ el("j_p0").style.width = "100%"; }, 80);
+  T(function(){ el("j_t1").textContent = c.jms + "ms"; el("j_p1").style.width = "100%"; }, 300);
+
+  PROBES.forEach(function(p, i){
+    T(function(){
+      el("j" + i).classList.add("in");
+      el("jm" + i).textContent = "判断中…";
+    }, 350 + i * 120);
+    T(function(){
+      var v = c.jev[p.key];
+      el("jf" + i).style.width = Math.round(v * 100) + "%";
+      el("jf" + i).style.background = p.color;
+      el("jm" + i).textContent = Math.round(v * 100) + "%";
+      el("ja" + i).textContent = v > 0.5 ? "是 (" + (Math.round(v*1000)/10) + "%)" : "否";
+    }, 480 + i * 120);
+  });
+
+  var raw = '{"model":"bocha-jev-v1","answers":{';
+  PROBES.forEach(function(p, i){
+    T(function(){
+      raw += '"' + p.key + '":{"noul":' + c.jev[p.key].toFixed(2) + "}" + (i < 4 ? "," : "}}");
+      el("j_raw").textContent = raw;
+    }, 400 + i * 120);
+  });
+
+  T(function(){
+    el("g_t0").textContent = "~1ms";
+    el("g_p0").style.width = "100%";
+    el("g_think").textContent = "理解消息 → 逐类比对定义 → 生成 JSON…";
+  }, 500);
+
+  PROBES.forEach(function(p, i){
+    T(function(){
+      el("g" + i).classList.add("in");
+      el("gm" + i).textContent = "token…";
+    }, 700 + i * 140);
+    T(function(){
+      var v = c.glm[p.key];
+      el("gf" + i).style.width = Math.round(v * 100) + "%";
+      el("gf" + i).style.background = p.color;
+      el("gm" + i).textContent = Math.round(v * 100) + "%";
+    }, 850 + i * 140);
+  });
+
+  var gtok = 0;
+  var tokTimer = setInterval(function(){
+    gtok += 3 + Math.floor(Math.random() * 6);
+    el("g_t1").textContent = gtok + " tok";
+  }, 90);
+  timers.push(tokTimer);
+  T(function(){
+    clearInterval(tokTimer);
+    el("g_t1").textContent = gtok + " tok / " + c.gms + "ms";
+    el("g_p1").style.width = "100%";
+  }, 900);
+
+  var gstr = '{\n  "transfer": ' + c.glm.transfer.toFixed(2) + ",";
+  T(function(){ el("g_raw").textContent = "```json\n" + gstr; }, 760);
+  T(function(){ el("g_raw").textContent = "```json\n" + gstr + '\n  "wealth": ' + c.glm.wealth.toFixed(2) + ","; }, 860);
+  T(function(){ el("g_raw").textContent = "```json\n" + gstr + '\n  "wealth": ' + c.glm.wealth.toFixed(2) + ',\n  "account": ' + c.glm.account.toFixed(2) + ","; }, 960);
+  T(function(){
+    el("g_raw").textContent = "```json\n" + gstr + '\n  "wealth": ' + c.glm.wealth.toFixed(2) + ',\n  "account": ' + c.glm.account.toFixed(2) + ',\n  "loss_fraud": ' + c.glm.loss_fraud.toFixed(2) + ',\n  "complaint": ' + c.glm.complaint.toFixed(2) + "\n```";
+  }, 1060);
+
+  T(function(){
+    var jd = c.jroute === "go" ? "ok" : "warn";
+    var jdTxt = c.jroute === "go" ? "✓ " + c.verdictJ : "△ " + c.verdictJ;
+    var jv = document.createElement("div");
+    jv.className = "verd " + jd + " show";
+    jv.innerHTML = "<b>Jev：</b>" + jdTxt + "<br>端到端 <b>" + c.jms + "ms</b>";
+    attachResult(jv);
+    var gv = document.createElement("div");
+    gv.className = "verd ok show";
+    gv.innerHTML = "<b>GLM：</b>✓ " + c.verdictG + "<br>端到端 <b>" + c.gms + "ms</b>";
+    attachResult(gv);
+    el("go").disabled = false;
+  }, 1400);
+}
+
+function attachResult(node){
+  var e1 = el("j_raw").parentElement, e2 = el("g_raw").parentElement;
+  var t1 = e1.querySelector(".result"), t2 = e2.querySelector(".result");
+  if (t1) t1.remove(); if (t2) t2.remove();
+  var r1 = document.createElement("div"); r1.className = "result"; r1.appendChild(node);
+  var r2 = document.createElement("div"); r2.className = "result"; r2.appendChild(node.cloneNode(true));
+  e1.appendChild(r1); e2.appendChild(r2);
+}
+
+renderCases();
+</script>
+</body>
+</html>
