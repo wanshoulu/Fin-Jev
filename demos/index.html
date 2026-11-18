@@ -49,7 +49,15 @@ h1{font-size:24px;font-weight:700;margin-bottom:4px;}
 <body>
 <div class="wrap">
   <h1>Fin-Jev 演示索引</h1>
-  <p class="subtitle">Jev noul 阵列 + GLM-5.3-Flash 双引擎金融意图决策 — 5 个交互式演示</p>
+  <p class="subtitle">Jev noul 阵列 + GLM-5.3-Flash 双引擎金融意图决策 — 6 个交互式演示</p>
+
+  <a class="card" href="workbench.html">
+    <div class="card-head">
+      <span class="card-tag tag-main">入口</span>
+      <span class="card-title">Fin-Jev 工作台</span>
+    </div>
+    <p class="card-desc">统一工作台：左栏按需切换「意图识别测试台 / 语义路由测试台」，iframe 承载，各应用仍可独立直开</p>
+  </a>
 
   <a class="card" href="duel_chat.html">
     <div class="card-head">
@@ -57,6 +65,14 @@ h1{font-size:24px;font-weight:700;margin-bottom:4px;}
       <span class="card-title">对话式双引擎测试台</span>
     </div>
     <p class="card-desc">完整流水线交互式聊天：图遍历召回 → 向量选题 → Jev 并行是非题 → 三层门控 → GLM 复核/影子对照，实时展示每阶段输入输出</p>
+  </a>
+
+  <a class="card" href="semantic_routing.html">
+    <div class="card-head">
+      <span class="card-tag tag-main">主推</span>
+      <span class="card-title">语义路由测试台</span>
+    </div>
+    <p class="card-desc">L0 门禁 → L1 缓存 → L2 规则 → L3 Jev 语义 → L4 决策分层管道可视化：14 类金融任务自动分类并映射模型档位，监管高风险强制复核</p>
   </a>
 
   <a class="card" href="jev_pipeline_demo.html">
@@ -91,7 +107,7 @@ h1{font-size:24px;font-weight:700;margin-bottom:4px;}
     <p class="card-desc">三种问法（直接分类 / noul 是非题 / 上下文+是非题）的实测对比，验证并行是非题阵列的准确率提升</p>
   </a>
 
-  <p class="hint">提示：主推的「对话式双引擎测试台」需先运行 <code>python jev_proxy.py</code> 启动本地代理（端口 8787）后访问 http://127.0.0.1:8787/demos/duel_chat.html 。其他演示可直接 file:// 打开。</p>
+  <p class="hint">提示：推荐先运行 <code>python jev_proxy.py</code> 启动本地代理（端口 8787）后打开 http://127.0.0.1:8787/ 进入统一工作台（左栏切换各演示）。各演示也可直接 file:// 双击打开（自动切官方直连，需自备 Key）。</p>
 </div>
 </body>
 </html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fin-Jev 工作台</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e4e6ea; --line-2:#eef0f2;
+  --bg:#f3f4f7; --card:#ffffff;
+  --jev:#0f6e56; --jev-bg:#ecf6f2;
+  --glm:#534ab7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  display:flex; overflow:hidden;
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.sidebar{
+  width:236px; flex:0 0 236px;
+  background:var(--card); border-right:0.5px solid var(--line-1);
+  display:flex; flex-direction:column;
+}
+.brand{padding:20px 18px 14px; border-bottom:0.5px solid var(--line-2);}
+.brand h1{font-size:17px;font-weight:700;letter-spacing:.5px;}
+.brand .sub{font-size:11px;color:var(--ink-4);margin-top:2px;}
+nav{padding:12px 10px; flex:1; overflow:auto;}
+.app-item{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  background:transparent; border:0.5px solid transparent; border-radius:10px;
+  padding:12px 14px; margin-bottom:8px;
+  transition:border-color .15s, background .15s;
+  font-family:inherit; font-size:inherit; color:inherit;
+}
+.app-item:hover{background:var(--bg);}
+.app-item.on{background:var(--jev-bg); border-color:var(--jev);}
+.app-item .t{font-size:14px;font-weight:600;display:flex;align-items:center;gap:9px;}
+.ico{
+  width:24px;height:24px;flex:0 0 24px;border-radius:7px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#fff;
+}
+.ico-a{background:var(--jev);}
+.ico-b{background:var(--glm);}
+.app-item.on .ico-a{background:#0c5c48;}
+.app-item.on .ico-b{background:#46409f;}
+.app-item .d{font-size:11px;color:var(--ink-3);margin-top:3px;}
+.foot{padding:12px 16px 16px; border-top:0.5px solid var(--line-2); font-size:11px; color:var(--ink-4); line-height:1.7;}
+.foot code{font-size:10px; background:var(--bg); padding:1px 4px; border-radius:3px;}
+.stage{flex:1; position:relative; background:var(--bg);}
+iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#fff;}
+#noload{
+  position:absolute; inset:0; display:none; z-index:5;
+  align-items:center; justify-content:center; text-align:center;
+  background:var(--bg); padding:32px;
+}
+#noload .box{max-width:420px; background:var(--card); border:0.5px solid var(--line-1); border-radius:12px; padding:28px 30px;}
+#noload h2{font-size:15px; color:var(--amber); margin-bottom:10px;}
+#noload p{font-size:12px; color:var(--ink-3);}
+@media (max-width:760px){ .sidebar{width:64px;flex:0 0 64px;} .brand h1,.brand .sub,.app-item .d,.foot{display:none;} .brand{text-align:center;padding:16px 6px;} .app-item{padding:10px 6px;text-align:center;} .app-item .t{justify-content:center;} .ico{margin:0;} }
+</style>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand"><h1>Fin-Jev 工作台</h1><div class="sub">Jev 判定模型 · 应用入口</div></div>
+  <nav id="nav"></nav>
+  <div class="foot">同源代理需先运行 <code>python server/jev_proxy.py</code>（8787）后经 http://127.0.0.1:8787/ 访问；双击直开本页（file://）时应用自动切官方直连。</div>
+</aside>
+<main class="stage">
+  <iframe id="app" title="应用区"></iframe>
+  <div id="noload"><div class="box">
+    <h2>应用页面未找到</h2>
+    <p>请确认已启动 <code>python server/jev_proxy.py</code> 并通过 http://127.0.0.1:8787/ 访问；或直接双击 demos 目录下的对应页面打开。</p>
+  </div></div>
+</main>
+<script>
+var APPS=[
+ {id:"duel_chat", ico:"识", cls:"ico-a", name:"意图识别测试台",
+  desc:"对话式双引擎 · noul 阵列 · 图谱召回", url:"duel_chat.html"},
+ {id:"semantic_routing", ico:"路", cls:"ico-b", name:"语义路由测试台",
+  desc:"L0–L4 分层管道 · 14 类 · 模型档位", url:"semantic_routing.html"}
+];
+var KEY="workbench_active_v1";
+/* 相对路径基准：经根路径（/）服务时补 demos/ 前缀；/demos/ 访问或 file:// 直开时为同目录 */
+var BASE=(location.protocol!=="file:" && location.pathname.indexOf("/demos/")!==0) ? "demos/" : "";
+var cur=null;
+function render(){
+  var nav=document.getElementById("nav"); nav.innerHTML="";
+  APPS.forEach(function(a){
+    var b=document.createElement("button");
+    b.className="app-item"+(a.id===cur?" on":"");
+    b.innerHTML='<div class="t"><span class="ico '+a.cls+'">'+a.ico+'</span>'+a.name+'</div><div class="d">'+a.desc+'</div>';
+    b.onclick=function(){ select(a.id); };
+    nav.appendChild(b);
+  });
+}
+function findApp(id){ for(var i=0;i<APPS.length;i++){ if(APPS[i].id===id) return APPS[i]; } return null; }
+function select(id){
+  cur=id;
+  try{ localStorage.setItem(KEY,id); }catch(e){}
+  render();
+  document.getElementById("app").src=BASE+findApp(id).url;
+}
+/* 简易 404 探测：代理返回的 "not found" 文本页 → 覆盖层提示 */
+document.getElementById("app").addEventListener("load",function(){
+  var tip=false;
+  try{
+    var d=this.contentDocument;
+    if(d && d.body && /^\s*not found\s*$/.test(d.body.textContent||"")) tip=true;
+  }catch(e){}
+  document.getElementById("noload").style.display=tip?"flex":"none";
+});
+var saved=null;
+try{ saved=localStorage.getItem(KEY); }catch(e){}
+select(findApp(saved)?saved:APPS[0].id);
+</script>
+</body>
+</html>

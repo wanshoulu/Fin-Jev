@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>语义路由测试台 · L0–L4 分层管道</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e4e6ea; --line-2:#eef0f2;
+  --bg:#f3f4f7; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  padding-bottom:40px;
+}
+/* ---- 通道状态条 ---- */
+#netbar{
+  font-size:11px; color:var(--ink-3); padding:6px 18px;
+  background:var(--card); border-bottom:0.5px solid var(--line-2);
+  display:flex; gap:14px; align-items:center;
+}
+#netbar b{color:var(--jev); font-weight:600;}
+/* ---- 顶栏 ---- */
+.hd{padding:16px 18px 4px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;}
+.hd h1{font-size:19px; font-weight:700;}
+.hd .grad{background:linear-gradient(90deg,var(--jev),var(--glm)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.hd .sub{font-size:12px; color:var(--ink-3);}
+.hd .btns{margin-left:auto; display:flex; gap:8px;}
+.btn{
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:6px 12px;
+  transition:border-color .15s, box-shadow .15s;
+}
+.btn:hover{border-color:var(--jev); box-shadow:0 1px 6px rgba(14,122,95,.12);}
+.btn.primary{background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600;}
+.btn.primary:hover{background:#0c6650;}
+/* ---- 布局 ---- */
+.main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:12px; padding:12px 18px;}
+@media (max-width:1020px){ .main{grid-template-columns:1fr;} }
+.colL,.colR{display:flex; flex-direction:column; gap:12px; min-width:0;}
+.card{
+  background:var(--card); border:0.5px solid var(--line-1); border-radius:10px;
+  padding:14px 16px; box-shadow:0 1px 3px rgba(23,24,28,.03);
+}
+.card h2{font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.card h2 .n{font-size:10px; color:var(--ink-4); font-weight:400;}
+/* ---- 输入卡 ---- */
+#q{
+  width:100%; min-height:76px; resize:vertical;
+  font-family:inherit; font-size:13px; color:var(--ink-1);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:9px 11px;
+  outline:none; transition:border-color .15s;
+}
+#q:focus{border-color:var(--jev);}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.chip{
+  font-size:11px; cursor:pointer; font-family:inherit;
+  background:var(--bg); color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:20px; padding:3px 10px;
+  transition:all .15s; white-space:nowrap;
+}
+.chip:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.chip.sp{border-color:var(--amber-bg); color:var(--amber); background:var(--amber-bg);}
+.chip.sp:hover{border-color:var(--amber);}
+.inrow{display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;}
+#ovr{
+  font-family:inherit; font-size:12px; color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:6px 8px;
+  background:var(--card); outline:none; max-width:230px;
+}
+.inrow .tip{font-size:11px; color:var(--ink-4); margin-left:auto;}
+/* ---- 管道卡 ---- */
+#pipe{display:flex; flex-direction:column; gap:0;}
+.pl{position:relative; padding:9px 10px 9px 14px; border-left:3px solid var(--line-1); margin-left:8px;}
+.pl::before{
+  content:""; position:absolute; left:-7px; top:16px;
+  width:11px; height:11px; border-radius:50%;
+  background:var(--card); border:2px solid var(--line-1);
+}
+.pl.hit{border-left-color:var(--jev);} .pl.hit::before{background:var(--jev); border-color:var(--jev);}
+.pl.skip{border-left-color:var(--amber);} .pl.skip::before{background:var(--amber); border-color:var(--amber);}
+.pl.pass{border-left-color:var(--ink-4);} .pl.pass::before{border-color:var(--ink-4);}
+.pl.err{border-left-color:var(--red);} .pl.err::before{background:var(--red); border-color:var(--red);}
+.pl-head{display:flex; align-items:center; gap:8px; cursor:pointer;}
+.pl-tag{font-size:10px; font-weight:700; color:var(--ink-2); background:var(--bg); border:0.5px solid var(--line-1); border-radius:4px; padding:1px 6px;}
+.pl-name{font-size:13px; font-weight:600;}
+.pl-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px; white-space:nowrap;}
+.pl-st.hit{background:var(--jev-bg); color:var(--jev);}
+.pl-st.skip{background:var(--amber-bg); color:var(--amber);}
+.pl-st.err{background:var(--red-bg); color:var(--red);}
+.pl-st.pass{background:var(--bg); color:var(--ink-3);}
+.pl-ms{font-size:11px; color:var(--ink-4); margin-left:auto; white-space:nowrap;}
+.pl-brief{font-size:12px; color:var(--ink-3); margin:3px 0 0 0;}
+.pl-detail{display:none; margin-top:7px;}
+.pl-detail.open{display:block;}
+.pl-detail pre{
+  font-size:10px; line-height:1.5; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px; padding:8px 10px;
+  color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+}
+.pl-arrow{font-size:11px; color:var(--ink-4); margin-left:14px; line-height:1;}
+/* ---- 决策卡 ---- */
+#dec_empty{color:var(--ink-4); font-size:12px; padding:14px 0; text-align:center;}
+.dec-cat{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+#dec_cat{font-size:24px; font-weight:700;}
+#dec_prob{font-size:13px; color:var(--ink-3);}
+.bar{height:7px; background:var(--bg); border-radius:4px; overflow:hidden; margin-top:8px;}
+.bar>i{display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,var(--jev),#19a97b); width:0; transition:width .4s;}
+.bar>i.warn{background:linear-gradient(90deg,var(--amber),#d97706);}
+.badges{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.badge{font-size:11px; padding:3px 10px; border-radius:6px; font-weight:600;}
+.badge.b-tier{background:var(--glm-bg); color:var(--glm);}
+.badge.b-model{background:var(--bg); color:var(--ink-2); border:0.5px solid var(--line-1); font-weight:500;}
+.badge.b-risk{background:var(--red-bg); color:var(--red);}
+.badge.b-priv{background:var(--amber-bg); color:var(--amber);}
+.badge.b-layer{background:var(--jev-bg); color:var(--jev);}
+#dec_path{font-size:11px; color:var(--ink-3); margin-top:10px; border-top:0.5px dashed var(--line-2); padding-top:8px;}
+#dec_path div{margin-top:2px;}
+#dec_path b{color:var(--ink-2); font-weight:600;}
+/* ---- 概率分布 ---- */
+.pr{display:flex; align-items:center; gap:8px; margin-top:5px;}
+.pr .k{font-size:11px; color:var(--ink-2); width:82px; flex:0 0 82px; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.pr .bar{flex:1; margin-top:0; height:8px;}
+.pr .v{font-size:10px; color:var(--ink-4); width:34px; flex:0 0 34px;}
+.pr.top .k{color:var(--jev); font-weight:600;}
+.pr.top .bar>i{background:linear-gradient(90deg,var(--jev),#19a97b);}
+/* ---- 信号卡 ---- */
+.sigrow{margin-top:8px;}
+.sigrow .lbl{display:flex; justify-content:space-between; font-size:12px; color:var(--ink-2);}
+.sigrow .lbl b{font-weight:600;}
+/* ---- JSONL ---- */
+#jlog{
+  font-size:10px; line-height:1.55; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px;
+  padding:8px 10px; color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+  max-height:200px; overflow:auto;
+}
+/* ---- 统计 ---- */
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.tile{background:var(--bg); border-radius:8px; padding:8px 6px; text-align:center;}
+.tile .v{font-size:16px; font-weight:700; color:var(--ink-1);}
+.tile .k{font-size:10px; color:var(--ink-4); margin-top:1px;}
+#laydist{font-size:11px; color:var(--ink-3); margin-top:8px;}
+#laydist b{color:var(--ink-2);}
+/* ---- 模态 ---- */
+#mask{position:fixed; inset:0; background:rgba(23,24,28,.4); display:none; align-items:center; justify-content:center; z-index:50;}
+#mask.open{display:flex;}
+.mbox{background:var(--card); border-radius:12px; padding:20px 22px; width:min(420px,92vw); box-shadow:0 8px 30px rgba(0,0,0,.15);}
+.mbox h3{font-size:15px; margin-bottom:12px;}
+.mbox label{display:block; font-size:12px; color:var(--ink-2); margin:10px 0 4px;}
+.mbox input{
+  width:100%; font-family:inherit; font-size:12px;
+  border:0.5px solid var(--line-1); border-radius:8px; padding:7px 10px; outline:none;
+}
+.mbox input:focus{border-color:var(--jev);}
+.mbox .note{font-size:11px; color:var(--ink-4); margin-top:8px; line-height:1.6;}
+.mrow{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+#toast{
+  position:fixed; left:50%; bottom:34px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink-1); color:#fff; font-size:12px;
+  padding:8px 16px; border-radius:8px; opacity:0; pointer-events:none;
+  transition:all .25s; z-index:60; max-width:80vw;
+}
+#toast.show{opacity:.92; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div id="netbar">通道检测中…</div>
+
+<div class="hd">
+  <div>
+    <h1>语义路由<span class="grad">测试台</span></h1>
+    <div class="sub">Gate → Cache → Rules → Jev → Decision · 14 类金融任务 · 分档选模型</div>
+  </div>
+  <div class="btns">
+    <button class="btn" onclick="selfTest()">连接自检</button>
+    <button class="btn" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn" onclick="clearAll()">清空会话</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="colL">
+    <div class="card">
+      <h2>输入请求 <span class="n">模拟客户端发往 /v1/router/chat 的 query</span></h2>
+      <textarea id="q" placeholder="输入一条员工请求，观察它在 L0–L4 管道中如何被路由…&#10;例如：帮我审一遍这笔对公授信申报材料的风险点"></textarea>
+      <div class="chips" id="chips"></div>
+      <div class="inrow">
+        <select id="ovr" title="X-Route-Override：显式指定，命中即跳过 L1–L3">
+          <option value="">override：无（走完整管道）</option>
+        </select>
+        <button class="btn primary" id="go" onclick="route()">执 行 路 由</button>
+        <span class="tip">override 命中 → L0 直接出决策</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>分层路由管道 <span class="n">确定性越高越靠前；规则只做捷径不否决语义</span></h2>
+      <div id="pipe"></div>
+    </div>
+  </div>
+
+  <div class="colR">
+    <div class="card">
+      <h2>路由决策 <span class="n">{tier, model, review_required, use_private}</span></h2>
+      <div id="dec"><div id="dec_empty">尚无决策 —— 输入请求并执行路由</div></div>
+    </div>
+    <div class="card">
+      <h2>类别概率分布 <span class="n">Jev choice 主判 · 14 类 + default</span></h2>
+      <div id="probs"><div id="dec_empty">等待 L3 语义判定</div></div>
+    </div>
+    <div class="card">
+      <h2>辅助信号 <span class="n">同请求并行的 noul 闸门</span></h2>
+      <div id="sig"><div id="dec_empty">等待 L3 返回</div></div>
+    </div>
+    <div class="card">
+      <h2>观测 JSONL <span class="n">每请求一条 · AuditLogger schema</span></h2>
+      <div id="jlog">—</div>
+    </div>
+    <div class="card">
+      <h2>会话统计</h2>
+      <div class="tiles">
+        <div class="tile"><div class="v" id="st_n">0</div><div class="k">请求</div></div>
+        <div class="tile"><div class="v" id="st_jev">–</div><div class="k">均 Jev ms</div></div>
+        <div class="tile"><div class="v" id="st_rt">–</div><div class="k">均路由 ms</div></div>
+        <div class="tile"><div class="v" id="st_hit">–</div><div class="k">捷径命中</div></div>
+      </div>
+      <div id="laydist">layer_hit 分布：—</div>
+    </div>
+  </div>
+</div>
+
+<div id="mask"><div class="mbox">
+  <h3>⚙ Key 设置</h3>
+  <label>Jev API Key（博查 System One）</label>
+  <input id="cfg_jev" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入">
+  <div class="note">同源访问（8787）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需在此填入官方 Key（仅存于浏览器 localStorage）。</div>
+  <div class="mrow">
+    <button class="btn" onclick="closeCfg()">取消</button>
+    <button class="btn" onclick="clearKey()">清除</button>
+    <button class="btn primary" onclick="saveCfg()">保存</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+/* ================= 常量：14 类 + default（蓝本 docs/semantic-routing-research.md §5.1） ================= */
+var CATS=[
+ {k:"office_chat",name:"日常问答",tier:"small",risk:"low",cacheable:true,
+  crit:"日常寒暄、单点事实问答、翻译、文本润色改写；与业务无关的短请求",
+  eg:"帮我把这段话翻译成英文：请查收附件"},
+ {k:"kb_qa",name:"知识库问答",tier:"small",risk:"low",cacheable:true,
+  crit:"制度、产品说明、操作规程等内部知识库检索问答（RAG 检索为主）",
+  eg:"异地网点开户需要带哪些材料？"},
+ {k:"office_writing",name:"办公写作",tier:"mid",risk:"low",cacheable:true,
+  crit:"公文、邮件、通知、会议纪要、PPT 大纲等常规写作",
+  eg:"给客户写一封会议改期的通知邮件"},
+ {k:"meeting_assist",name:"会议助手",tier:"mid",risk:"low",cacheable:true,
+  crit:"会议转写整理、要点与待办提取，输入常为长转写文本",
+  eg:"把这份一小时的会议录音转写稿整理成要点和待办清单"},
+ {k:"data_query",name:"数据取数",tier:"mid",risk:"low",cacheable:true,
+  crit:"取数、SQL 生成、报表解读、数据核对",
+  eg:"生成 SQL：查上月对公存款余额前十的客户"},
+ {k:"customer_mgr",name:"客户经营",tier:"mid",risk:"mid",cacheable:true,
+  crit:"客户经理话术、客户画像、营销文案、拓客线索（涉客户利益）",
+  eg:"给一位持有理财即将到期的客户写一段挽留话术"},
+ {k:"doc_heavy",name:"长文档处理",tier:"longctx",risk:"low",cacheable:true,
+  crit:"超长文档摘要与比对：合同包、招股书、流水、舆情包",
+  eg:"把这份 80 页的招股书摘要成一页纸要点"},
+ {k:"reasoning_deep",name:"深度推理",tier:"large",risk:"low",cacheable:true,
+  crit:"复杂多步推理、数学计算、长链规划",
+  eg:"某项目 IRR 为 12%，已知前五年现金流如下，反推初始投资额"},
+ {k:"research",name:"投研分析",tier:"large",risk:"mid",cacheable:true,
+  crit:"投研分析、财报解读、财务建模底稿、研报草拟",
+  eg:"解读这份季报的毛利率变化并给出投资观点"},
+ {k:"credit_dd",name:"信贷尽调",tier:"large",risk:"high",cacheable:false,
+  crit:"对公信贷尽调、授信材料、信贷材料校验、普惠核查报告（信贷审批相关，监管高风险）",
+  eg:"帮我审一遍这笔对公授信申报材料的风险点"},
+ {k:"compliance_qa",name:"合规问答",tier:"large",risk:"mid",cacheable:true,
+  crit:"监管政策解读、合规要求问答、监管报送口径",
+  eg:"新规下理财销售双录的具体适用范围是什么？"},
+ {k:"compliance_review",name:"合规审查",tier:"large",risk:"high",cacheable:false,
+  crit:"合同条款审查、合规一致性检查、制度冲突排查（监管高风险）",
+  eg:"审查这份借款合同的担保条款是否合规"},
+ {k:"risk_aml",name:"反洗钱风控",tier:"large",risk:"high",cacheable:false,
+  crit:"可疑交易分析、反洗钱 STR、欺诈识别、贷后风险监测（风险管理，监管高风险）",
+  eg:"分析这批交易的可疑特征并起草 STR 报告要点"},
+ {k:"ai_coding",name:"AI 编程",tier:"coding",risk:"low",cacheable:true,
+  crit:"写代码、调试、代码审查、技术方案",
+  eg:"用 Python 写一个带指数退避重试的 HTTP 客户端"},
+ {k:"default",name:"兜底 default",tier:"mid",risk:"—",cacheable:true,
+  crit:"以上类别均不确定或混合任务",eg:""}
+];
+var CATMAP={}; CATS.forEach(function(c){ CATMAP[c.k]=c; });
+var TIERS={
+ small:{name:"小模型",model:"GLM 小档（示例）",channel:"llm-router:8117"},
+ mid:{name:"中模型",model:"GLM 中档（示例）",channel:"llm-router:8117"},
+ large:{name:"旗舰大模型",model:"旗舰模型（示例）",channel:"直连 API"},
+ coding:{name:"编程专用",model:"coding 专用（示例）",channel:"直连 API"},
+ longctx:{name:"长上下文专用",model:"128K 长上下文（示例）",channel:"直连 API"}
+};
+var TIER_ORDER=["small","mid","large"];      /* 升档链：small→mid→large；coding/longctx 升为 large */
+var TH={tau_high:0.8,tau_low:0.55,high_risk:0.8,long_ctx:0.8,state_max_chars:2000};
+/* L0 硬红线（§5.6 gates.sensitive_patterns 摘要） */
+var SENSITIVE=[
+ {re:/\b\d{16,19}\b/, name:"银行卡号（16–19 位数字）"},
+ {re:/\b\d{17}[\dXx]\b/, name:"身份证号（18 位）"}
+];
+/* L2 规则捷径（§5.6 routes.json.rules 精简版；只做 shortcut 不否决语义） */
+var RULES=[
+ {t:"prefix",v:"/code",cat:"ai_coding",why:"命中前缀 /code"},
+ {t:"prefix",v:"/sql",cat:"data_query",why:"命中前缀 /sql"},
+ {t:"keyword",v:["招股书","审计报告","年报"],cat:"doc_heavy",why:"命中关键词"},
+ {t:"keyword",v:["反洗钱","可疑交易","STR 报告"],cat:"risk_aml",why:"命中关键词"},
+ {t:"keyword",v:["授信","尽调","贷前调查"],cat:"credit_dd",why:"命中关键词"}
+];
+/* ================= 通道与配置（与 duel_chat 同模式） ================= */
+var JEV_URL="https://jev.bocha.cn/v1/systemone", PROXY_URL="/v1/systemone";
+var KEY_STORE="semantic_routing_keys_v1";
+var CFG={jevKey:""};
+var useProxy=false, chanBase="", chanName="—";
+try{ var raw=localStorage.getItem(KEY_STORE); if(raw){ CFG=JSON.parse(raw)||CFG; } }catch(e){}
+function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._h); toast._h=setTimeout(function(){ el.classList.remove("show"); },2200); }
+function setChannel(){
+  if(location.protocol==="http:"||location.protocol==="https:"){ useProxy=true; chanBase=""; chanName="同源代理 /v1/systemone（BUILTIN_JEV 注入）"; }
+  else { useProxy=false; chanBase=JEV_URL; chanName="file:// 直连官方 API"; }
+  document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 端口 8787 · 模型档位映射见右侧决策卡";
+}
+function cfg(){ return CFG.jevKey||"BUILTIN_JEV"; }
+async function probeChannel(text){
+  var t0=Date.now();
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify({model:"bocha-jev-v1",state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
+    });
+    var txt=await r.text();
+    var ok=(r.status>=200&&r.status<300)||r.status===401||r.status===403; /* 401/403：通道可达但 Key 无效（占位符场景） */
+    return {ok:ok,code:r.status,ms:Date.now()-t0,raw:txt.slice(0,600)};
+  }catch(e){ return {ok:false,code:0,ms:Date.now()-t0,raw:String(e)}; }
+}
+async function selfTest(){
+  toast("自检中…");
+  document.getElementById("netbar").innerHTML="通道自检中…";
+  var p=await probeChannel("连通性自检");
+  var nb=document.getElementById("netbar");
+  if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
+  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+" 自检失败</b> · "+p.raw; toast("自检失败："+p.raw); }
+}
+/* ---- 配置模态 ---- */
+function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
+function closeCfg(){ document.getElementById("mask").classList.remove("open"); }
+function saveCfg(){
+  CFG.jevKey=document.getElementById("cfg_jev").value.trim();
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  closeCfg(); toast("Key 已保存"); setChannel();
+}
+function clearKey(){
+  document.getElementById("cfg_jev").value=""; CFG.jevKey="";
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  toast("已清除，走 BUILTIN_JEV 注入");
+}
+/* ---- 输入卡：样例 chips + override 下拉 ---- */
+function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+function initInput(){
+  var html="";
+  CATS.forEach(function(c){ if(c.eg) html+='<button class="chip" onclick="fill(this)" data-eg="'+esc(c.eg)+'">'+c.name+'</button>'; });
+  html+='<button class="chip sp" onclick="fill(this)" data-eg="我的卡号是 6222021123456789012，帮我查一下这张卡的余额">敏感数据（L0 红线）</button>';
+  html+='<button class="chip sp" onclick="fill(this)" data-eg="/code 用 Python 写一个快速排序">/code 前缀（L2 规则）</button>';
+  document.getElementById("chips").innerHTML=html;
+  var o='<option value="">override：无（走完整管道）</option>';
+  CATS.forEach(function(c){ o+='<option value="'+c.k+'">override 类别：'+c.name+'（'+c.k+'）</option>'; });
+  Object.keys(TIERS).forEach(function(t){ o+='<option value="tier:'+t+'">override 档位：'+TIERS[t].name+'（'+t+'）</option>'; });
+  document.getElementById("ovr").innerHTML=o;
+}
+function fill(el){ document.getElementById("q").value=el.getAttribute("data-eg")||""; }
+/* ---- 管道渲染 ---- */
+var PIPE=[
+ {id:"L0",name:"GateGuard 门禁",brief:"鉴权 / 限流 / 敏感数据硬红线 / X-Route-Override"},
+ {id:"L1",name:"RouteCache 缓存",brief:"归一化 query LRU · 高风险类与 review 请求不入缓存"},
+ {id:"L2",name:"RuleEngine 规则",brief:"强信号捷径（前缀/关键词），只做 shortcut 不否决语义"},
+ {id:"L3",name:"JevClassifier 语义",brief:"choice 主判 14 类 + high_risk / needs_long_context 两个 noul 同请求并行"},
+ {id:"L4",name:"DecisionEngine 决策",brief:"风险 / 上下文闸门 → 置信分层（τ 0.8/0.55）→ 兜底，请求永不失败"}
+];
+function renderPipe(){
+  var h="";
+  PIPE.forEach(function(p,i){
+    h+='<div class="pl pass" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
+      +'<span class="pl-tag">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
+      +'<span class="pl-st pass" id="pst_'+i+'">待命</span><span class="pl-ms" id="pms_'+i+'"></span></div>'
+      +'<p class="pl-brief">'+p.brief+'</p>'
+      +'<div class="pl-detail" id="pd_'+i+'"><pre>—</pre></div></div>';
+    if(i<PIPE.length-1) h+='<div class="pl-arrow">▼</div>';
+  });
+  document.getElementById("pipe").innerHTML=h;
+}
+function toggleDetail(i){ document.getElementById("pd_"+i).classList.toggle("open"); }
+function setPl(i,state,st,ms,brief,detail){
+  var el=document.getElementById("pl_"+i);
+  el.className="pl "+state;
+  var stEl=document.getElementById("pst_"+i);
+  stEl.className="pl-st "+state; stEl.textContent=st;
+  document.getElementById("pms_"+i).textContent=(ms!=null)?(ms+" ms"):"";
+  if(brief!=null) el.querySelector(".pl-brief").textContent=brief;
+  if(detail!=null) document.getElementById("pd_"+i).querySelector("pre").textContent=detail;
+}
+function resetPipe(){
+  PIPE.forEach(function(_,i){
+    setPl(i,"pass","待命",null,null,null);
+    document.getElementById("pd_"+i).classList.remove("open");
+  });
+}
+/* ---- L0 / L1 / L2（前端演示实现，对应 §5.6 routes.json） ---- */
+var cacheMap=new Map(), CACHE_MAX=256;
+function normQ(s){ return s.toLowerCase().replace(/[\s，。！？、：；「」『』（）·—,.!?;:'"()\[\]{}]+/g,""); }
+function cacheGet(k){ if(cacheMap.has(k)){ var v=cacheMap.get(k); cacheMap.delete(k); cacheMap.set(k,v); return v; } return null; }
+function cacheSet(k,v){
+  if(cacheMap.has(k)) cacheMap.delete(k);
+  cacheMap.set(k,v);
+  if(cacheMap.size>CACHE_MAX) cacheMap.delete(cacheMap.keys().next().value);
+}
+function ruleHit(q){
+  for(var i=0;i<RULES.length;i++){
+    var r=RULES[i];
+    if(r.t==="prefix"&&q.indexOf(r.v)===0) return {cat:r.cat,why:r.why+" → "+r.cat,rule:"{type:'"+r.t+"', value:'"+r.v+"'}"};
+    if(r.t==="keyword"){
+      for(var j=0;j<r.v.length;j++){ if(q.indexOf(r.v[j])>=0) return {cat:r.cat,why:r.why+"「"+r.v[j]+"」→ "+r.cat,rule:"{type:'"+r.t+"', list}"}; }
+    }
+  }
+  return null;
+}
+function busy(b){ var el=document.getElementById("go"); el.disabled=b; el.textContent=b?"路由中…":"执 行 路 由"; }
+/* ---- L3 JevClassifier：单请求三 questions 并行（body 严格 model/state/questions 三键） ---- */
+function buildQuestions(){
+  /* Jev schema（实测确认）：choice={type,criteria:{key:描述}}；noul={type,instructions,criteria:{true,false}} */
+  var crit={};
+  CATS.forEach(function(c){ crit[c.k]=c.crit; });
+  return {
+    main:{type:"choice",criteria:crit},
+    high_risk:{type:"noul",
+      instructions:"判断该请求是否属于监管高风险应用",
+      criteria:{true:"资金交易、资产评估、信贷审批、承保理赔、风险管理或客户利益直接相关",
+                false:"普通办公、知识问答、文档处理等非高风险场景"}},
+    needs_long_context:{type:"noul",
+      instructions:"判断该请求是否为超长文档处理任务",
+      criteria:{true:"数十页合同、招股书、年报、转写全文等超长输入",
+                false:"普通长度的输入"}}
+  };
+}
+function fmt(x){ return (x==null)?"—":(Math.round(x*1000)/1000); }
+function parseNoul(a){ if(!a) return null; if(typeof a.noul==="number") return a.noul; if(typeof a.p==="number") return a.p; if(typeof a==="number") return a; return null; }
+function parseMain(a){
+  /* 实测响应：answers.main={type:"choice",choice:"data_query",probabilities:{...},confidence:0.94} */
+  var key=null, probs=null, conf=null;
+  if(typeof a==="string"){ key=a; }
+  else if(a&&typeof a==="object"){
+    if(typeof a.choice==="string") key=a.choice;
+    else if(typeof a.key==="string") key=a.key;
+    else if(typeof a.selected==="string") key=a.selected;
+    probs=a.probs||a.p||a.probabilities||null;
+    conf=(typeof a.confidence==="number")?a.confidence:null;
+  }
+  if(!key&&probs){ var ks=Object.keys(probs); ks.sort(function(x,y){ return probs[y]-probs[x]; }); key=ks[0]; }
+  if(!key&&a&&typeof a==="object"){
+    var best=null,bv=-1;
+    Object.keys(a).forEach(function(k){ if(typeof a[k]==="number"&&a[k]>bv){ bv=a[k]; best=k; } });
+    if(best){ key=best; conf=bv; }
+  }
+  var out={category:key,prob:conf,probs:{}};
+  if(probs) Object.keys(probs).forEach(function(k){ if(typeof probs[k]==="number") out.probs[k]=+probs[k]; });
+  if(key&&out.probs[key]==null) out.probs[key]=(conf!=null)?conf:0.9;
+  if(out.prob==null){ var mx=0; Object.keys(out.probs).forEach(function(k){ if(out.probs[k]>mx) mx=out.probs[k]; }); out.prob=mx||null; }
+  return out;
+}
+async function callJev(q){
+  var t0=Date.now();
+  var body={
+    model:"bocha-jev-v1",
+    state:{message:q.length>TH.state_max_chars?q.slice(0,TH.state_max_chars):q},
+    questions:buildQuestions()
+  };
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify(body)
+    });
+    var data=await r.json();
+    var ms=(data.metadata&&data.metadata.inference_ms)||Date.now()-t0;
+    if(!(r.status>=200&&r.status<300)) return {ok:false,err:"HTTP "+r.status+" "+JSON.stringify(data).slice(0,200),ms:Date.now()-t0};
+    var a=data.answers||{}, p=parseMain(a.main), hr=parseNoul(a.high_risk), nlc=parseNoul(a.needs_long_context);
+    if(!p.category) return {ok:false,err:"响应缺 main.choice key："+JSON.stringify(data).slice(0,200),ms:ms};
+    return {ok:true,raw:data,category:p.category,prob_max:p.prob,probs:p.probs,hr:hr,nlc:nlc,ms:ms};
+  }catch(e){ return {ok:false,err:String(e),ms:Date.now()-t0}; }
+}
+/* ---- L4 DecisionEngine：闸门 → 置信分层 → 兜底 ---- */
+function upTier(t){
+  if(t==="coding"||t==="longctx") return "large";
+  var i=TIER_ORDER.indexOf(t);
+  return TIER_ORDER[Math.min(i+1,TIER_ORDER.length-1)];
+}
+function applyL4(R,x){
+  var path=[], cat=x.category||"default", c=CATMAP[cat]||CATMAP.default;
+  var tier=x.tierOverride||c.tier, review=false;
+  if(x.tierOverride){
+    path.push("L0 override 显式决策 → 档位 "+tier+"（显式意志优先，免闸门）");
+  }else{
+    if(x.hr!=null&&x.hr>=TH.high_risk){
+      tier="large"; review=true;
+      path.push("风险闸门：noul high_risk="+fmt(x.hr)+" ≥ "+TH.high_risk+" → 强制 large + 人工复核 + 禁缓存");
+    }else if(c.risk==="high"){
+      review=true;
+      path.push("风险闸门：类别「"+c.name+"」属监管高风险 → 人工复核 + 禁缓存");
+    }else{
+      path.push("风险闸门：通过（high_risk="+fmt(x.hr)+"，类别风险 "+c.risk+"）");
+    }
+    if(x.nlc!=null&&x.nlc>=TH.long_ctx){
+      tier="longctx";
+      path.push("上下文闸门：needs_long_context="+fmt(x.nlc)+" ≥ "+TH.long_ctx+" → 长上下文档");
+    }else if(R.q.length>30000){
+      tier="longctx";
+      path.push("上下文闸门：输入 "+R.q.length+" 字符 > 30000 → 长上下文档");
+    }
+    if(R.layer==="jev"&&x.prob!=null){
+      if(x.prob>=TH.tau_high) path.push("置信分层：prob_max="+fmt(x.prob)+" ≥ τ_high("+TH.tau_high+") → 直选");
+      else if(x.prob>=TH.tau_low){ var old=tier; tier=upTier(tier); path.push("置信分层："+fmt(x.prob)+" ∈ ["+TH.tau_low+","+TH.tau_high+") → 保守升档 "+old+" → "+tier); }
+      else { cat="default"; c=CATMAP.default; tier=c.tier; path.push("置信分层："+fmt(x.prob)+" < τ_low("+TH.tau_low+") → System Two 复判（演示以 default 档兜底）"); }
+    }
+  }
+  var dec={category:cat,tier:tier,model:TIERS[tier].model,channel:TIERS[tier].channel,
+    prob:x.prob,probs:x.probs,high_risk:x.hr,needs_long_context:x.nlc,
+    review_required:review,use_private:R.use_private,path:path};
+  /* 缓存写回：仅语义路径且非 review 且类别可缓存（§5.3 L1） */
+  if(R.layer==="jev"&&!review&&c.cacheable!==false) cacheSet(normQ(R.q),dec);
+  /* L4 节点渲染 */
+  var total=Date.now()-R.t0;
+  setPl(4, review?"skip":"hit", review?"强制复核":"出决策", total-R.jev_ms,
+    "→ "+c.name+"（"+tier+"）"+(review?" · review_required":"")+(R.use_private?" · 私有化通道":""),
+    "决策路径：\n"+path.map(function(s,i){ return (i+1)+". "+s; }).join("\n"));
+  renderDecision(dec); renderProbs(dec); renderSig(dec); emitLog(R,dec,total);
+}
+/* ---- 右侧渲染 ---- */
+function renderDecision(d){
+  var c=CATMAP[d.category]||CATMAP.default, h="";
+  h+='<div class="dec-cat"><span id="dec_cat">'+c.name+'</span><span id="dec_prob">'
+   +(d.prob!=null?("prob_max "+fmt(d.prob)):"非语义路径")+'</span></div>'
+   +'<div class="bar"><i style="width:'+Math.round((d.prob!=null?d.prob:1)*100)+'%"></i></div>'
+   +'<div class="badges">'
+   +'<span class="badge b-tier">'+TIERS[d.tier].name+' · '+d.tier+'</span>'
+   +'<span class="badge b-model">'+d.model+'（'+d.channel+'）</span>'
+   +(d.review_required?'<span class="badge b-risk">高风险 · 人工复核</span>':"")
+   +(d.use_private?'<span class="badge b-priv">私有化通道</span>':"")
+   +'</div><div id="dec_path">'
+   +d.path.map(function(s){ return "<div><b>▸</b> "+s+"</div>"; }).join("")
+   +"</div>";
+  document.getElementById("dec").innerHTML=h;
+}
+function renderProbs(d){
+  if(!d.probs||!Object.keys(d.probs).length){ document.getElementById("probs").innerHTML='<div id="dec_empty">非语义路径（cache/rule/override）——无概率分布</div>'; return; }
+  var ks=Object.keys(d.probs); ks.sort(function(a,b){ return d.probs[b]-d.probs[a]; });
+  var mx=d.probs[ks[0]]||1, h="";
+  ks.forEach(function(k,i){
+    var pct=Math.round(d.probs[k]/mx*100), name=(CATMAP[k]||{}).name||k;
+    h+='<div class="pr'+(i===0?" top":"")+'"><span class="k" title="'+k+'">'+name+'</span>'
+     +'<div class="bar"><i style="width:'+pct+'%"></i></div><span class="v">'+fmt(d.probs[k])+'</span></div>';
+  });
+  document.getElementById("probs").innerHTML=h;
+}
+function renderSig(d){
+  function row(name,val){
+    var pct=Math.round((val||0)*100);
+    return '<div class="sigrow"><div class="lbl"><span>'+name+'</span><b>'+fmt(val)+'</b></div>'
+      +'<div class="bar"><i class="'+(val!=null&&val>=0.8?"warn":"")+'" style="width:'+pct+'%"></i></div></div>';
+  }
+  if(d.high_risk==null&&d.needs_long_context==null){
+    document.getElementById("sig").innerHTML='<div id="dec_empty">非语义路径——无 noul 信号</div>'; return;
+  }
+  document.getElementById("sig").innerHTML=row("high_risk（≥0.8 强制大模型+人工复核）",d.high_risk)
+    +row("needs_long_context（≥0.8 切长上下文档）",d.needs_long_context);
+}
+function emitLog(R,d,total){
+  var probs=(d.probs&&Object.keys(d.probs).length)?d.probs:null;
+  var j={ts:R.ts,req_id:R.req_id,tenant:"demo",layer_hit:R.layer,category:d.category,
+    prob_max:d.prob!=null?fmt(d.prob):(R.layer==="jev"?null:1),
+    probs:probs,high_risk:fmt(d.high_risk),needs_long_context:fmt(d.needs_long_context),
+    tier:d.tier,chosen_model:d.model,jev_ms:R.jev_ms,total_route_ms:total,
+    override:R.override,cache_hit:R.layer==="cache",state_chars:R.q.length,
+    review_required:d.review_required,use_private:d.use_private};
+  document.getElementById("jlog").textContent=JSON.stringify(j);
+  /* 统计 */
+  stats.n++; stats.layer[R.layer]=(stats.layer[R.layer]||0)+1;
+  stats.jevSum+=R.jev_ms; stats.rtSum+=total;
+  var sc=(stats.layer.gate||0)+(stats.layer.cache||0)+(stats.layer.rule||0);
+  document.getElementById("st_n").textContent=stats.n;
+  document.getElementById("st_jev").textContent=stats.jevSum?Math.round(stats.jevSum/stats.n):"–";
+  document.getElementById("st_rt").textContent=Math.round(stats.rtSum/stats.n);
+  document.getElementById("st_hit").textContent=sc+"/"+stats.n;
+  var parts=Object.keys(stats.layer).map(function(k){ return "<b>"+k+"</b>×"+stats.layer[k]; });
+  document.getElementById("laydist").innerHTML="layer_hit 分布："+parts.join(" · ");
+}
+/* ---- 主流程 route() ---- */
+var stats={n:0,jevSum:0,rtSum:0,layer:{}};
+async function route(){
+  var q=document.getElementById("q").value.trim();
+  if(!q){ toast("请输入请求内容"); return; }
+  var ovr=document.getElementById("ovr").value;
+  resetPipe(); busy(true);
+  var R={ts:new Date().toISOString(),req_id:"r-"+Math.random().toString(36).slice(2,6),
+    q:q,override:ovr||null,layer:"jev",jev_ms:0,use_private:false,t0:Date.now()};
+  try{
+    /* L0 GateGuard（去空白/连字符副本一并检测，兼容卡号分组书写） */
+    var qn=q.replace(/[\s\-]/g,"");
+    var sens=SENSITIVE.filter(function(s){ return s.re.test(q)||s.re.test(qn); }).map(function(s){ return s.name; });
+    if(ovr){
+      var det="X-Route-Override: "+ovr+(sens.length?("\n⚠ 同时命中敏感红线（仍标记审计）："+sens.join("、")):"");
+      if(/^tier:/.test(ovr)){
+        setPl(0,"hit","override",null,"override 档位命中 → L0 直接出决策，跳过 L1–L3",det);
+        R.layer="gate";
+        applyL4(R,{category:"default",tierOverride:ovr.slice(5),prob:null,probs:null,hr:null,nlc:null});
+      }else{
+        setPl(0,"hit","override",null,"override 类别命中 → L0 直接出决策，跳过 L1–L3",det);
+        R.layer="gate";
+        applyL4(R,{category:ovr,prob:null,probs:null,hr:null,nlc:null});
+      }
+      return;
+    }
+    if(sens.length){
+      R.use_private=true;
+      setPl(0,"skip","红线命中",null,"敏感数据命中：强制私有化通道 + 同步审计（路由继续）",
+        "命中模式：\n"+sens.join("\n")+"\n→ use_private=true，不入缓存");
+    }else{
+      setPl(0,"pass","通过",null,"无敏感命中、无 override","Authorization Bearer ✓ · body 校验 ✓");
+    }
+    /* L1 RouteCache */
+    var nk=normQ(q), c=cacheGet(nk);
+    if(c&&!c.review_required){
+      setPl(1,"hit","命中",null,"归一化命中 → 复用上次决策（约 1ms，零 Jev 消耗）",
+        "cached decision: "+(CATMAP[c.category]||{}).name+" → "+c.tier);
+      R.layer="cache"; applyL4(R,{category:c.category,prob:c.prob,probs:c.probs,hr:c.high_risk,nlc:c.needs_long_context});
+      return;
+    }
+    setPl(1,"pass","未命中",null,"缓存 "+cacheMap.size+"/"+CACHE_MAX,"");
+    /* L2 RuleEngine */
+    var hit=ruleHit(q);
+    if(hit){
+      setPl(2,"hit","命中",null,hit.why,"命中规则 "+hit.rule);
+      R.layer="rule";
+      applyL4(R,{category:hit.cat,prob:null,probs:null,hr:null,nlc:null});
+      return;
+    }
+    setPl(2,"pass","未命中",null,"无强信号捷径 → 进入语义判定","");
+    /* L3 JevClassifier */
+    setPl(3,"pass","调用中",null,"state "+q.length+" 字符 · choice + 2×noul 并行","");
+    var jr=await callJev(q);
+    if(!jr.ok){
+      setPl(3,"err","失败",jr.ms,jr.err,"");
+      R.layer="fallback";
+      applyL4(R,{category:"default",prob:null,probs:null,hr:null,nlc:null});
+      return;
+    }
+    R.jev_ms=jr.ms;
+    setPl(3,"hit","返回",jr.ms,"category="+jr.category+" · prob_max="+fmt(jr.prob_max)
+      +" · high_risk="+fmt(jr.hr)+" · long_ctx="+fmt(jr.nlc),
+      "原始返回：\n"+JSON.stringify(jr.raw,null,2).slice(0,1600));
+    /* L4 DecisionEngine */
+    applyL4(R,{category:jr.category,prob:jr.prob_max,probs:jr.probs,hr:jr.hr,nlc:jr.nlc});
+  }finally{ busy(false); }
+}
+/* ---- 清空 / 初始化 ---- */
+function clearAll(){
+  stats={n:0,jevSum:0,rtSum:0,layer:{}}; cacheMap.clear();
+  resetPipe();
+  document.getElementById("q").value="";
+  document.getElementById("dec").innerHTML='<div id="dec_empty">尚无决策 —— 输入请求并执行路由</div>';
+  document.getElementById("probs").innerHTML='<div id="dec_empty">等待 L3 语义判定</div>';
+  document.getElementById("sig").innerHTML='<div id="dec_empty">等待 L3 返回</div>';
+  document.getElementById("jlog").textContent="—";
+  document.getElementById("st_n").textContent="0";
+  document.getElementById("st_jev").textContent="–";
+  document.getElementById("st_rt").textContent="–";
+  document.getElementById("st_hit").textContent="–";
+  document.getElementById("laydist").innerHTML="layer_hit 分布：—";
+  toast("会话已清空（含路由缓存）");
+}
+setChannel(); initInput(); renderPipe();
+probeChannel("连通性自检").then(function(p){
+  if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
+  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+" 暂不可达</b>（可点「连接自检」重试）";
+});
+</script>
+</body>
+</html>

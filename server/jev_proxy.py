@@ -100,7 +100,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path in ("/", "/index.html"):
             # 仓库布局：页面在 demos/ 子目录；平面布局：与本文件同目录
-            fname = "demos/duel_chat.html" if ROOT != _HERE else "duel_chat.html"
+            # 根路径 = Fin-Jev 工作台（左栏切换 意图识别 / 语义路由）
+            fname = "demos/workbench.html" if ROOT != _HERE else "workbench.html"
         else:
             fname = path.lstrip("/")
             # 仓库布局兼容：/demos/xxx.html 直映 demos/ 子目录
