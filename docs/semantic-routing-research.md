@@ -197,37 +197,161 @@ Jev 返回 {category_key, prob_max, probs, high_risk, needs_long_context}
 3. **每层独立可观测**：管道输出 `{layer_hit: gate|cache|rule|jev|fallback, category, prob_max, chosen_model, ...}` 落 JSONL——分层命中率是后续调优（扩规则集 vs 调阈值）的直接依据。
 4. **全部配置化**：门禁规则、缓存策略、规则捷径、类别映射、阈值都在 routes.json，改配置不改代码。
 
-### 5.4 服务端集成架构
+### 5.4 总体架构与部署拓扑
 
-两条路径，推荐 A：
-
-**方案 A（推荐）：扩展 jev_proxy.py 为路由网关**
+**方案 A（推荐，P0–P2）：扩展 jev_proxy.py 为路由网关**——单进程、零新增部署面，复用现有 systemd 服务（fin-jev）与密钥管理（`jev_key.local.json`），现有 `/v1/systemone` 同源代理与静态页保持不变。
 
 ```
-客户端 → jev_proxy.py (8787)
-           ├─ POST /v1/router/chat    ← 新增：路由入口
-           │    1. 读 messages（OpenAI 兼容格式）
-           │    2. 拼路由 state（取最后 1–2 条用户消息，截断至 ~2K tokens）
-           │    3. 调 Jev systemone → 决策 → 选模型
-           │    4. 转发至 llm-router(8117)/GLM 通道或直连目标模型 API
-           │    5. 响应头回传 X-Route-{Category,Model,Prob,JevMs} 便于观测
-           ├─ 现有 /v1/systemone 同源代理（保持不变）
-           └─ 现有静态页/探针服务（保持不变）
+接入方（duel_chat / OA 助手 / 代码平台 / 数据问答客户端）
+   │  POST /v1/router/chat —— OpenAI 兼容，可带 X-Route-Override
+   ▼
+┌─────────────────  jev_proxy.py : 8787（单进程）  ─────────────────┐
+│                                                                  │
+│  Router Pipeline（server/router/）                               │
+│   L0 GateGuard ──── 鉴权/限流/敏感红线 → 拦截或强制私有化；        │
+│   │                 override 命中 → 生成显式决策跳过 L1–L3        │
+│   L1 RouteCache ── 归一化 LRU 命中 → 直接复用上次决策             │
+│   L2 RuleEngine ── 强信号捷径命中 → 直接出决策（仅 shortcut）     │
+│   L3 JevClassifier ── choice 主判 + high_risk /                  │
+│   │                 needs_long_context 两个 noul 同请求并行       │
+│   L4 DecisionEngine ── 风险/上下文闸门 + 置信分层；               │
+│         │              低置信 → System Two 复判                   │
+│         ▼  决策 {tier, model, review_required, use_private}      │
+│  ModelDispatcher —— 流式透传 + 通道级 fallback 链                 │
+│   ├─ llm-router : 8117（GLM 池）   ← small / mid 档              │
+│   ├─ 直连各模型 API                ← large / coding / longctx 档 │
+│   └─ 私有化通道                    ← 敏感数据强制（L0/L4 命中）   │
+│                                                                  │
+│  AuditLogger（异步队列 → JSONL）   ConfigCenter（routes.json 热载）│
+│                                                                  │
+│  （原有）POST /v1/systemone 同源代理 · 静态页/探针 —— 保持不变     │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-- 单进程、零新增部署面，复用现有 systemd 服务与密钥管理（`jev_key.local.json`）。
-- `routes.json` 配置化：类别 ↔ 模型 ↔ 阈值，改配置不重启（或重启成本低）。
+**方案 B（演进，P3）：Pipeline 拆为独立 router 服务**——多前端共用或需独立扩缩容时，把 `server/router/` 整体迁出为独立进程；接入方只改 base_url，`/v1/router/chat` 契约不变。初期不必要。
 
-**方案 B：独立 router 服务**——与 jev_proxy 解耦，适合后续多前端共用；初期不必要。
+模型通道：本机 llm-router（8117，GLM 系）作为 small/mid 档模型池；large/coding/长上下文档走直连各模型 API（服务器侧无 GLM key），或后续统一收敛至自建网关——差异由 Dispatcher 层屏蔽，接入方无感。
 
-模型通道说明：本机 llm-router（8117，GLM 系）作为 chat 模型池；服务器侧无 GLM key，走直连各模型 API 或后续统一网关。
+### 5.5 核心组件设计
 
-### 5.5 关键实现细节
+```
+server/
+├── jev_proxy.py          # 现有进程入口：systemone 同源代理 + 静态页（保持不变）
+├── router/
+│   ├── pipeline.py       # 管道编排：L0→L4 顺序执行、异常边界、耗时埋点
+│   ├── gate.py           # L0 GateGuard
+│   ├── cache.py          # L1 RouteCache
+│   ├── rules.py          # L2 RuleEngine
+│   ├── classifier.py     # L3 JevClassifier（含 Jev provider 抽象）
+│   ├── decision.py       # L4 DecisionEngine（含 System Two 复判）
+│   ├── dispatcher.py     # ModelDispatcher
+│   ├── audit.py          # AuditLogger
+│   └── config.py         # ConfigCenter
+└── routes.json           # 全部路由配置（schema 见 §5.6）
+```
+
+| 组件 | 层 | 职责 | 失败行为 |
+|---|---|---|---|
+| **GateGuard** | L0 | Bearer 鉴权、限流、body 校验；敏感数据 pattern 命中 → 强制私有化通道 + 同步审计；违规内容 → 403；读 `X-Route-Override` → 产出显式决策并跳过 L1–L3 | 配置缺失/正则编译失败 → 拒绝启动（fail-fast） |
+| **RouteCache** | L1 | 归一化（小写、去多余空白/标点）query → 上次决策；TTL + 容量双限；高风险类与 high_risk 命中的请求不写入 | 关闭/异常 → 直接透传下一层 |
+| **RuleEngine** | L2 | 把 `routes.json.rules` 编译为有序 matcher，首个命中即产出决策；只做 shortcut、不否决语义层 | 编译期失败 → 启动报错；运行期单条规则异常 → 记日志并跳过该条 |
+| **JevClassifier** | L3 | state 构造（最近 1–2 条用户消息截断 ~2K tokens，多轮追问附上一轮摘要）；一个 choice（14 类）+ `high_risk`/`needs_long_context` 两个 noul 同请求并行；provider 抽象（博查/火山可切换）；body 严格 `model/state/questions` 三键 | 超时 800ms 重试 1 次，仍失败 → 转 L4 fallback 分支 |
+| **DecisionEngine** | L4 | 风险闸门 → 上下文闸门 → 置信分层（τ_high 直选 / 区间升档 / τ_low 以下复判）→ 交叉仲裁；低置信调 System Two 小 LLM 复判一次；产出 `{tier, model, review_required, use_private}` | 复判失败/超时 → default 档；永不向上游抛异常 |
+| **ModelDispatcher** | 出口 | tier → 通道/模型映射；流式与非流式透传；通道级 fallback 链（主通道超时/5xx → 备通道）；写 `X-Route-*` 观测头 | 全链失败 → 502 + audit 记录 |
+| **AuditLogger** | 横切 | 内存队列 + 后台线程批量写 JSONL（schema 见 §5.6）；高风险事件（review_required / 敏感命中）同步落盘不丢 | 队列满 → 丢低风险记录、高风险降级同步写 |
+| **ConfigCenter** | 横切 | routes.json mtime 检测热载；读临时文件 → schema 校验 → 原子替换；类别 ↔ 模型 ↔ 阈值全部配置化，改配置不改代码 | 校验失败 → 保留旧配置并告警 |
+
+### 5.6 数据契约
+
+**路由入口 `POST /v1/router/chat`（OpenAI 兼容）**
+
+```http
+POST /v1/router/chat
+Authorization: Bearer <token>              # GateGuard 鉴权
+X-Route-Override: coding                   # 可选：显式类别/档位/模型，命中即跳过 L1–L3
+Content-Type: application/json
+
+{ "model": "auto", "messages": [ ... ], "stream": true }   # 与 OpenAI chat/completions 完全兼容
+```
+
+响应为目标模型原样响应（流式透传），附加观测头：
+
+```http
+X-Route-Layer: jev             # gate | cache | rule | jev | fallback
+X-Route-Category: data_query   # 14 类之一；override 时回显 override 值
+X-Route-Prob: 0.91             # prob_max（非 L3 路径为 1.0）
+X-Route-Model: glm-4.7         # 最终选定模型
+X-Route-Risk: 0.03             # high_risk noul 输出（非 L3 路径为 0）
+X-Route-Jev-Ms: 187            # Jev 耗时；未走 L3 为 0
+X-Route-Review: false          # 高风险人工复核标记
+```
+
+**routes.json schema**（ConfigCenter 校验此结构）
+
+```json
+{
+  "categories": {
+    "office_chat": { "tier": "small", "risk": "low", "cacheable": true,
+                     "criteria": "日常寒暄、翻译、润色改写、单点事实问答；与业务无关的短请求" },
+    "credit_dd":   { "tier": "large", "risk": "high", "cacheable": false,
+                     "criteria": "对公信贷尽调、授信材料、普惠核查报告撰写与校验" }
+    // ……共 14 类 + default，criteria 要点见 §5.1
+  },
+  "tiers": {
+    "small":   { "channel": "llm-router", "model": "<GLM 小档>",   "fallback": "mid" },
+    "mid":     { "channel": "llm-router", "model": "<GLM 中档>",   "fallback": "large" },
+    "large":   { "channel": "direct",     "model": "<旗舰模型>",   "fallback": "mid" },
+    "coding":  { "channel": "direct",     "model": "<coding 专用>", "fallback": "large" },
+    "longctx": { "channel": "direct",     "model": "<128K 长上下文>", "fallback": "large" },
+    "default": { "tier": "mid" }
+  },
+  "gates": {
+    "sensitive_patterns": ["\\b\\d{16,19}\\b", "<身份证/证件号正则>"],
+    "private_channel": { "channel": "on-prem", "model": "<私有化模型>" }
+  },
+  "thresholds": {
+    "tau_high": 0.8, "tau_low": 0.55,
+    "high_risk": 0.8, "long_ctx": 0.8,
+    "state_max_tokens": 2000, "jev_timeout_ms": 800
+  },
+  "rules": [
+    { "type": "prefix",  "value": "/code",               "category": "ai_coding" },
+    { "type": "keyword", "value": ["招股书", "审计报告"], "category": "doc_heavy" },
+    { "type": "source",  "value": "oa",                  "category": "office_writing" },
+    { "type": "len_gt",  "value": 30000,                 "tier": "longctx" }
+  ],
+  "cache": { "max_size": 4096, "ttl_s": 3600 },
+  "jev": {
+    "provider": "bocha",
+    "endpoint": "<systemone endpoint>",
+    "questions": {
+      "main":               { "type": "choice", "options": "<14 类 + default 的 key>" },
+      "high_risk":          { "type": "noul",   "statement": "<是否命中高风险应用定义（§5.1）>" },
+      "needs_long_context": { "type": "noul",   "statement": "<输入是否为超长文档处理任务>" }
+    }
+  }
+}
+```
+
+**观测 JSONL（AuditLogger 每请求一条）**
+
+```json
+{"ts":"2026-11-18T10:00:00+08:00","req_id":"r-3f9a","tenant":"duel_chat",
+ "layer_hit":"jev","category":"data_query","prob_max":0.91,
+ "probs":{"data_query":0.91,"reasoning_deep":0.05,"office_chat":0.04},
+ "high_risk":0.03,"needs_long_context":0.11,"tier":"mid","chosen_model":"<GLM 中档>",
+ "jev_ms":187,"total_route_ms":212,"override":null,"cache_hit":false,
+ "state_tokens":312,"review_required":false,"use_private":false}
+```
+
+字段用途：`layer_hit` 分布决定调优方向（cache/rule 命中高 → 收益主要来自省钱；fallback 高 → Jev 链路不稳）；`probs` 全量分布用于漂移检测（§6 回归）；`review_required=true` 的事件即监管审计线索。
+
+### 5.7 关键实现细节
 
 1. **路由 state 构造**：只送任务语义所需的最近用户消息（截断 ~2K tokens），不送全对话历史——省 tokens 且避免历史偏置分类。
 2. **多轮上下文**：对话中途的追问（"再优化一下"）语义不足时，附带最近一轮对话摘要进 state。
 3. **缓存**：归一化 query 级 LRU（见 §5.3 L1），高风险类不入缓存（合规要求，见 §5.2）。
-4. **观测**：每次路由记录 `{category, probs, chosen_model, prob_max, jev_ms, total_ms}`，落 JSONL，供评测与阈值校准。
+4. **观测**：每次路由按 §5.6 JSONL schema 落一条记录，供评测与阈值校准。
 5. **配置热载**：`routes.json` 含分类体系、模型映射、阈值、fallback 链，agent 侧可调。
 
 ---
