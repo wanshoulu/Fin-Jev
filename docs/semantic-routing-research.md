@@ -174,7 +174,30 @@ Jev 返回 {category_key, prob_max, probs, high_risk, needs_long_context}
 
 与 OpenRouter auto 的降级哲学一致：**分类不可用时 fallback 默认模型，请求永不失败**。阈值 τ 通过评测集校准（见 §6）。风险闸门的判定输出与最终"是否人工复核"一起写入审计日志，满足监管对高风险应用可追溯的要求 [15]。
 
-### 5.3 服务端集成架构
+### 5.3 分层路由管道（Gate → Cache → Rules → Jev → Fallback）
+
+路由不是一个 Jev 调用，而是一条分层管道。原则：**确定性越高的判断放越靠前（越便宜、越可审计），语义模糊的判断才交给模型**；上层可以直接放行或拦截，但规则层只做"捷径"，不做对下层结果的否决。
+
+```
+请求 → L0 门禁 → L1 缓存 → L2 规则 → L3 Jev 语义 → L4 复判/兜底 → 生成模型
+```
+
+| 层 | 职责 | 判定依据 | 延迟/成本 | 预期流量占比 |
+|---|---|---|---|---|
+| **L0 门禁 Gate** | 硬策略：鉴权、限流、请求体校验；**显式 override**（接入方在 header/参数里直接指定模型或路由，如 code 平台固定走 coding 模型——直接放行跳过 L2/L3）；**硬红线**（请求体命中卡号/身份证等敏感数据 pattern → 强制私有化通道 + 审计；明确违规内容 → 直接拒绝） | 配置化硬规则，100% 确定性 | <1ms | 全量；拦截 + override 约 5–10% |
+| **L1 缓存 Cache** | 归一化后相同 query 复用上次路由决策；高风险类（credit_dd/compliance_review/risk_aml）及 high_risk 命中的请求**不入缓存** | LRU + 归一化 key | ~1ms | 5–15% 命中 |
+| **L2 规则 Rules** | 强信号捷径：显式指令（`/sql`、`/code` 前缀）、来源应用标记（OA 入口默认 office_writing）、输入长度超阈值直接切长上下文档位 | 关键词/正则/元数据，配置化于 routes.json 的 `rules` 节 | ~1ms | 10–20% 命中 |
+| **L3 Jev 语义** | 主路径：choice 14 类主判 + `high_risk`/`needs_long_context` noul 闸门同请求并行；按 §5.2 阈值分层决策 | 语义判定，校准概率 | ~200ms | ~70–85% |
+| **L4 复判/兜底** | Jev 低置信（prob_max < τ_low）→ System Two 小 LLM 复判一次；Jev 异常/超时 → default 档模型。**请求永不失败** | 二次判定 / 静态兜底 | +200ms～2s | <5%，<1% |
+
+设计约束：
+
+1. **L0/L1/L2 不可否决 L3**：规则只能"提前命中"高确定性 case，不能拦截或改写 Jev 的语义判定——规则误命中时最多损失一次 Jev 调用机会，不会锁死路由；反过来 Jev 判定结果永远以语义为准。
+2. **override 是显式的**：只有 L0 的显式指定可以绕过语义层（调用方自己负责），规则层不允许配置 override。
+3. **每层独立可观测**：管道输出 `{layer_hit: gate|cache|rule|jev|fallback, category, prob_max, chosen_model, ...}` 落 JSONL——分层命中率是后续调优（扩规则集 vs 调阈值）的直接依据。
+4. **全部配置化**：门禁规则、缓存策略、规则捷径、类别映射、阈值都在 routes.json，改配置不改代码。
+
+### 5.4 服务端集成架构
 
 两条路径，推荐 A：
 
@@ -199,11 +222,11 @@ Jev 返回 {category_key, prob_max, probs, high_risk, needs_long_context}
 
 模型通道说明：本机 llm-router（8117，GLM 系）作为 chat 模型池；服务器侧无 GLM key，走直连各模型 API 或后续统一网关。
 
-### 5.4 关键实现细节
+### 5.5 关键实现细节
 
 1. **路由 state 构造**：只送任务语义所需的最近用户消息（截断 ~2K tokens），不送全对话历史——省 tokens 且避免历史偏置分类。
 2. **多轮上下文**：对话中途的追问（"再优化一下"）语义不足时，附带最近一轮对话摘要进 state。
-3. **缓存**：相似前缀/相同 query 的路由结果 LRU 缓存（命中即免 Jev 调用）。
+3. **缓存**：归一化 query 级 LRU（见 §5.3 L1），高风险类不入缓存（合规要求，见 §5.2）。
 4. **观测**：每次路由记录 `{category, probs, chosen_model, prob_max, jev_ms, total_ms}`，落 JSONL，供评测与阈值校准。
 5. **配置热载**：`routes.json` 含分类体系、模型映射、阈值、fallback 链，agent 侧可调。
 
