@@ -9,7 +9,7 @@
 ## 1. 结论速览
 
 1. **可行，且是 Jev 的官方推荐用法**。TypeSafe 官方将"路由到正确的模型"列为核心用例，LangChain 已内置 `ModelRouterMiddleware`，社区已有 68+ 个路由类项目（含 597★ 的 Claude Code 路由器）。
-2. **推荐形态**：一个 `choice` 问题（最多 255 个候选类）一次往返完成分类，返回每类概率；无需训练、无需 embedding 库，用自然语言 criteria 定义类别即可扩展。
+2. **推荐形态**：一个 `choice` 问题（最多 255 个候选类）一次往返完成分类，返回每类概率；无需训练、无需 embedding 库，用自然语言 criteria 定义类别即可扩展。分类体系以**金融企业员工典型应用**为蓝本（§5.1，14 类 + 兜底），并叠加**监管高风险闸门**（§5.2，金监总局高风险应用定义）。
 3. **成本与延迟**：Jev 输入 $0.042–0.42/1M tokens（输出免费），实测单请求 ~0.2s / ~131 tokens（6 题并行）。对生成式调用而言路由开销可忽略（<1% token 增量）。
 4. **决策策略**：argmax + 双阈值（高置信直选 / 中置信保守 / 低置信升级 System Two 小 LLM 复判）+ 路由失败 fallback 默认模型。参考 OpenRouter auto 的降级设计。
 5. **预期收益**：级联/路由类方案的公开数据为成本降 40–85%（质量不降）；我们目标设定为综合成本降 40–70%，先评测后上线。
@@ -109,39 +109,70 @@ Jev 属第 1 类的变体：**System One 判定模型**——不生成文本，�
 
 ## 5. 推荐方案设计
 
-### 5.1 任务分类体系（v1）
+### 5.1 任务分类体系：金融企业员工典型应用
 
-主判用**一个 choice 问题**，v1 五类（可平滑扩到 255 上限内）：
+分类体系不从抽象的"任务类型"出发，而是以金融企业员工的**真实角色与日常应用**为蓝本。行业调研显示员工侧 AI 应用已高度分层（依据见右列/文末参考）：
 
-| 类别 key | 判定标准（criteria 描述） | 映射模型档位 |
+- **全员办公**：制度问答、公文纪要、翻译润色——北京银行 AIB 平台 50 款运营效率工具 + 10 项创作助手 [17]；中小银行"OA 办公搭子"（席位订阅、OA 内嵌智能体）[27]；建行 AI 助手作为一线"超级导师"，网点问题响应覆盖率 99.42%、日均 10 万+ 次访问 [16]。
+- **客户经营**：客户经理话术、客户画像、营销文案、普惠核查——建行"帮得"使核查报告 2–3 天缩至 3 小时 [18]；百融"硅基员工"覆盖营销报告/贷后监测 [19]。
+- **投研投行**：财报分析、财务建模底稿（DCF/LBO/三表联动）、研报生成——券商研报场景 [20]、Anthropic 投行智能体（Earnings Reviewer/Model Builder）[21]、Goldman 财报电话会实时分析 [22]。
+- **合规风控**：监管政策解读、合同审查、反洗钱 STR、可疑交易——反洗钱 GenAI 全流程（CDD/EDD、PEP 筛查、STR 叙述准备）[23]、AI 异常检测广泛用于 AML/CFT 与欺诈识别 [24]。
+- **科技研发**：代码开发、PR 审查、监控根因分析——JPMorgan Claude Code 全员推广（超出工程师范围）[25]。
+- **监管红线**：金监总局《银行业保险业人工智能安全开发应用指导意见》明确**高风险应用**范围——涉及资金交易、资产评估、信贷审批、承保理赔、风险管理及与客户利益直接相关的场景，须风险管理委员会批准并建立人工监督干预机制 [15]。**路由系统必须感知该维度**，这是与通用路由器的本质差异。
+
+主判用**一个 choice 问题**承载下表 14 类（可平滑扩到 255 上限内）：
+
+| 类别 key | 场景（criteria 要点） | 典型使用者 | 模型档位 | 监管风险 | 行业依据 |
+|---|---|---|---|---|---|
+| `office_chat` | 闲聊、单点事实问答、翻译、文本润色改写 | 全员 | 小模型 | 低 | [16][27] |
+| `kb_qa` | 制度/产品/操作规程/内部知识库问答（RAG 检索为主） | 全员 | 小模型 + RAG | 低 | [16] |
+| `office_writing` | 公文、邮件、通知、会议纪要、PPT 大纲等常规写作 | 全员 | 中模型 | 低 | [16][26] |
+| `meeting_assist` | 会议转写整理、要点/待办提取（输入为长转写文本） | 全员 | 中模型（长上下文） | 低 | [26] |
+| `data_query` | 取数、SQL 生成、报表解读、数据核对 | 运营/数据 | 中模型 | 低 | [19] |
+| `customer_mgr` | 客户经理话术、客户画像、营销文案、拓客线索 | 客户经理 | 中模型 | 中（涉客户利益） | [18][19] |
+| `doc_heavy` | 超长文档摘要/比对：合同包、招股书、流水、舆情包 | 前中后台 | 长上下文专用 | 低 | [19] |
+| `reasoning_deep` | 复杂多步推理、数学、长链规划（不专属某业务域） | 全员 | 大模型（旗舰） | 低 | 用户显式诉求 |
+| `research` | 投研分析、财报解读、财务建模底稿、业绩预测、研报草拟 | 研究员/投行 | 大模型（旗舰） | 中 | [20][21][22] |
+| `credit_dd` | 对公信贷尽调、授信材料、信贷材料校验、普惠核查报告 | 对公/普惠客户经理 | 大模型（旗舰） | **高（信贷审批相关）** | [18][19] |
+| `compliance_qa` | 监管政策解读、合规要求问答、监管报送口径 | 合规/全员 | 大模型 | 中 | [15] |
+| `compliance_review` | 合同条款审查、合规一致性检查、制度冲突排查 | 法务/合规 | 大模型（旗舰） | **高** | [15] |
+| `risk_aml` | 可疑交易分析、反洗钱 STR、欺诈识别、贷后风险监测 | 风控 | 大模型（旗舰） | **高（风险管理）** | [23][24] |
+| `ai_coding` | 写代码、调试、代码审查、技术方案 | 科技部门 | coding 专用模型 | 低 | [25] |
+| `default` | 以上均不确定或混合 | — | 中模型（保守档） | — | 兜底 |
+
+辅助信号（与主判**同一请求并行**返回，不增加往返）：
+
+| 信号 | 类型 | 决策用途 |
 |---|---|---|
-| `chat_simple` | 日常闲聊、单点事实问答、格式改写、短文翻译等单步任务 | 小模型（如 glm-5.3-flash / 同档 7B 级） |
-| `reasoning_deep` | 多步推理、数学、因果分析、长链规划、需要论证的任务 | 大模型（如 glm-5.3 / 同档旗舰） |
-| `ai_coding` | 写代码、改代码、调试、代码审查、技术实现讨论 | coding 专用模型 |
-| `long_context` | 超长文档理解、整仓分析、大量上下文引用 | 长上下文模型 |
-| `default` | 以上都不确定/混合 | 保守默认档（中档模型） |
+| `high_risk` | noul | 是否命中监管高风险定义（资金交易/资产评估/信贷审批/承保理赔/风险管理/客户利益直接相关）→ 触发强模型强制升档 + 人工复核标记 |
+| `needs_long_context` | noul | 输入超长（>32K tokens 的摘要/比对任务）→ 切长上下文档位 |
+| `complexity` | score 1–5 | 难度分布记录，为后续按难度细分子档位积累数据 |
 
-辅助 noul 问题（可选、与主判同请求并行）：
+> 设计原则：**choice 为主判（一次定类），noul/score 为旁路信号**。`high_risk` 与 `needs_long_context` 两个信号直接参与决策（有明确监管/工程依据）；`complexity` 先记录不参与决策，积累数据后再启用——避免一开始就把规则写死。
 
-- `needs_deep_reasoning`：是/否，用于 `chat_simple` 与 `reasoning_deep` 边界的二次确认；
-- `complexity`（score 1–5）：为未来按难度细分子档位预留数据。
-
-> 设计原则：**choice 为主判（一次定类），noul/score 为旁路信号**。旁路信号先记录不参与决策，积累数据后再决定是否用于二次仲裁——避免一开始就把规则写死。
-
-### 5.2 决策策略（置信分层 + 兜底）
+### 5.2 决策策略（高风险闸门 + 置信分层 + 兜底）
 
 ```
-Jev 返回 {category_key, prob_max, probs}
+Jev 返回 {category_key, prob_max, probs, high_risk, needs_long_context}
 │
-├─ prob_max ≥ τ_high (0.8)     → 直选该类模型（90%+ 流量）
-├─ τ_low (0.55) ≤ prob < τ_high → 保守策略：升一档选模型（宁可选大不选小）
-└─ prob_max < τ_low             → 升级 System Two：小 LLM 复判一次
-                                   ├─ 复判结果 → 采用
-                                   └─ 复判失败/超时 → default 档模型
-异常（Jev 超时/报错）            → default 档模型（永不因路由失败而失败）
+├─ 0) 风险闸门（凌驾于分类档位之上）
+│     high_risk ≥ 0.8 → 强制大模型档 + 响应标记"高风险需人工复核"
+│                        + 写审计日志 + 禁用路由缓存（金监总局人工监督要求 [15]）
+├─ 1) 上下文闸门
+│     needs_long_context ≥ 0.8 → 切长上下文档位（与类别档位取更高者）
+│
+├─ 2) 置信分层
+│     prob_max ≥ τ_high (0.8)     → 直选该类模型（90%+ 流量）
+│     τ_low (0.55) ≤ prob < τ_high → 保守策略：升一档选模型（宁可选大不选小）
+│     prob_max < τ_low             → 升级 System Two：小 LLM 复判一次
+│                                      ├─ 复判结果 → 采用
+│                                      └─ 复判失败/超时 → default 档模型
+├─ 3) 交叉仲裁：主判 prob_max ∈ [τ_low, τ_high] 且主判与 high_risk/complexity
+│     信号矛盾（如主判 office_chat 但 complexity ≥ 4）→ 升档处理
+└─ 异常（Jev 超时/报错）            → default 档模型（永不因路由失败而失败）
 ```
 
-与 OpenRouter auto 的降级哲学一致：**分类不可用时 fallback 默认模型，请求永不失败**。阈值 τ 通过评测集校准（见 §6）。
+与 OpenRouter auto 的降级哲学一致：**分类不可用时 fallback 默认模型，请求永不失败**。阈值 τ 通过评测集校准（见 §6）。风险闸门的判定输出与最终"是否人工复核"一起写入审计日志，满足监管对高风险应用可追溯的要求 [15]。
 
 ### 5.3 服务端集成架构
 
@@ -184,12 +215,13 @@ Jev 返回 {category_key, prob_max, probs}
 
 | 项 | 内容 |
 |---|---|
-| 标注集 | 300–500 条真实 query，按 5 类人工标注（含 50 条混合/模糊样本专测边界） |
+| 标注集 | 300–500 条真实 query，按 §5.1 场景配额覆盖 14 类（每类 ≥15 条），另含 50 条混合/模糊样本专测边界、30 条高风险样本专测 `high_risk` 闸门召回 |
 | 分类准确率 | Jev choice vs 人工标注，目标 ≥90%；混合类单独报告 |
 | 阈值校准 | 在标注集上扫 τ_high/τ_low，画（成本节省 × 质量保持率）曲线取 Pareto 点 |
 | 路由开销 | p50/p95 路由延迟增量，目标 p95 < 500ms（实测 ~200ms 起步） |
 | 成本收益 | 路由后混合成本 vs 全大模型基线，目标降 40–70% |
 | 质量对比 | 抽样路由任务 vs 全大模型回答，人工盲评（RouterBench 的 cost-matched 思路简化版） |
+| 高风险闸门召回 | 30 条高风险样本的 `high_risk` 召回率/误报率，目标召回 ≥95%——漏判属合规风险，误报仅造成升档成本，阈值偏召回 |
 | 回归机制 | 每周用线上 JSONL 记录抽检，概率分布漂移（如某类 prob_max 均值下降 >0.1）触发 criteria 重校 |
 
 ---
@@ -211,8 +243,8 @@ Jev 返回 {category_key, prob_max, probs}
 
 | 阶段 | 内容 | 验收 |
 |---|---|---|
-| P0 PoC | jev_proxy.py 加 `/v1/router/chat`：choice 主判 + 阈值决策 + fallback；routes.json | 手工跑通 5 类路由，curl 观测头正确 |
-| P1 评测 | 300+ 条标注集；分类准确率、阈值曲线、延迟、成本报告 | 准确率 ≥90%，成本节省 ≥40% |
+| P0 PoC | jev_proxy.py 加 `/v1/router/chat`：choice 主判 + 风险/上下文闸门 + 阈值决策 + fallback；routes.json 含 14 类映射 | 手工跑通 14 类路由与高风险升档，curl 观测头正确 |
+| P1 评测 | 300+ 条标注集（14 类配额 + 高风险样本）；分类准确率、闸门召回、阈值曲线、延迟、成本报告 | 准确率 ≥90%、高风险召回 ≥95%、成本节省 ≥40% |
 | P2 上线 | duel_chat / 生产前端接入；观测 JSONL；每周回归 | 线上无路由故障，成本下降可复算 |
 | P3 迭代 | score 难度分档、多通道（coding 专用模型接入）、阈值自动化校准 | 细分档位带来增量收益 |
 
@@ -234,5 +266,19 @@ Jev 返回 {category_key, prob_max, probs}
 12. 生态路由器：gargpratyush/jev-router、pi-jev-model-router、BillionsBobby/JevRouter — https://madewithjev.com/categories/routing-and-models · https://pi.dev/packages/pi-jev-model-router
 13. LangChain Jev 路由中间件 — https://www.langchain.com/blog/building-a-harness-with-jev
 14. 级联路由综述（cascade 结构与判别器变体）— https://arxiv.org/html/2606.13241v1
+15. 国家金融监督管理总局《关于银行业保险业人工智能安全开发应用的指导意见》（高风险应用定义：资金交易/资产评估/信贷审批/承保理赔/风险管理；高风险准入与人工监督要求）— https://www.nfra.gov.cn/cn/view/pages/ItemDetail.html?docId=1261784&itemId=928
+16. 新华网：1800 亿元加码金融科技，13 家上市银行大模型应用爆发式增长（工行 500+ 场景、招行 856 场景、建行 AI 助手网点覆盖率 99.42%）— https://www2.xinhuanet.com/20260415/d9222a7625f640fa9cb5fda34f12e6b9/c.html
+17. 新华网：北京银行 AIB 平台（80 项大模型服务、50 款运营效率工具、10 项 GPT 创作助手）— http://bj.news.cn/20250806/b7c7242db2ff43379b0a565d5a2038ca/c.html
+18. 新华网：建行"帮得"客户经理助手（普惠核查报告 2–3 天 → 3 小时，日均 Token 消耗破百亿）— https://app.xinhuanet.com/news/article.html?articleId=20260917f46225ee6cf948c1b8084b86b9f2dc98
+19. 羊城晚报：百融智能"硅基员工"（营销报告、财务报表与流水分析、信贷材料校验、贷后监测）— https://ep.ycwb.com/epaper/ycwb/html/2026-10/30/content_2987_770422.htm
+20. 中国证券业协会：券商加码布局 AI 智能体（研报信息提取 → 财务模型底稿、产品分析研报）— https://www.sac.net.cn/hydt/202608/t20260811_82123.html
+21. 财联社：Anthropic 10 个智能体重构投行、基金工作流（Earnings Reviewer、Model Builder：DCF/LBO/三表联动）— https://www.cls.cn/detail/2373585
+22. Kellton：Generative AI in Banking 2026 Expert Guide（Goldman 财报电话会实时情绪/指引提取、算法策略文档）— https://www.kellton.com/kellton-tech-blog/generative-ai-in-banking
+23. LTIMindtree：Conversational Intelligence for Anti-Money Laundering using GenAI（CDD/EDD、PEP 筛查、UBO 识别、STR 叙述准备）— https://www.ltim.com/content/dam/ltimcorporatewebsite/uploads/2026/02/v3-aml-360-index-linked.pdf
+24. OECD：Generative Artificial Intelligence in Finance（AI 异常检测在 AML/CFT 与欺诈检测的应用）— https://www.oecd-ilibrary.org/deliver/ac7149cc-en.pdf
+25. Anthropic：JPMorganChase expands Claude Code（推广至工程师之外，PR 审查、监控告警根因分析）— https://claude.com/resources/articles/jpmorganchase-expands-claude-code
+26. 金融电子化："对话即服务"重构智能办公流程（会议预订、全角色转写、纪要与待办生成）— http://m.toutiao.com/group/7576467223280108047/
+27. 南方财经：中小银行拥抱 AI"办公搭子"（席位订阅、Token 采购、OA 内嵌智能体）— https://m.sfccn.com/2026/11-13/0NMDE0MDZfMjMwNDA0NQ.html
+28. 上海财经大学 FinEval 6.0：金融大模型评测基准（金融学术知识/行业理解/安全认知/智能体应用/多模态/严谨性六大模块，26000+ 题）— https://m.thepaper.cn/newsDetail_forward_30906783
 
 > 注：标注 [4][5] 等定价与规格以官方文档为准；内部实测数据来自本仓库 PoC 环境（博查 jev.bocha.cn，2026-11），随环境变化需重测。
