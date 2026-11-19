@@ -558,7 +558,7 @@ function upTier(t){
   return TIER_ORDER[Math.min(i+1,TIER_ORDER.length-1)];
 }
 function applyL4(R,x){
-  var path=[], cat=x.category||"default", c=CATMAP[cat]||CATMAP.default;
+  var path=[], cat0=x.category||"default", cat=cat0, c0=CATMAP[cat0]||CATMAP.default, c=c0;
   if(R.layer==="fallback") path.push("⚠ 异常兜底：L3 语义调用失败（密钥失效或上游不可用）→ default 档，非语义判定结果");
   var tier=x.tierOverride||c.tier, review=false;
   if(x.tierOverride){
@@ -591,11 +591,21 @@ function applyL4(R,x){
     review_required:review,use_private:R.use_private,path:path};
   /* 缓存写回：仅语义路径且非 review 且类别可缓存（§5.3 L1） */
   if(R.layer==="jev"&&!review&&c.cacheable!==false) cacheSet(normQ(R.q),dec);
-  /* L4 节点渲染 */
+  /* L4 节点渲染：点击展开 = 决策输入快照 + 阈值规则 + 决策路径 + 最终落点 */
   var total=Date.now()-R.t0;
+  var layerName={gate:"L0 显式 override",cache:"L1 缓存复用",rule:"L2 规则命中",jev:"L3 语义判定",fallback:"L3 异常兜底"}[R.layer]||R.layer;
+  var detail="决策输入（本次判定依据）：\n"
+    +"· 路由来源："+layerName+"\n"
+    +"· 判类结果："+c0.name+"（"+cat0+"）"+(x.prob!=null?" · prob_max="+fmt(x.prob):" · 非语义路径，无概率信号")+"\n"
+    +"· 并行信号：high_risk="+(x.hr!=null?fmt(x.hr):"—")+" · needs_long_context="+(x.nlc!=null?fmt(x.nlc):"—")+"\n"
+    +"· 类别静态属性：预设档位 "+c0.tier+" · 风险等级 "+c0.risk+" · 可缓存 "+(c0.cacheable===false?"否":"是")+"\n"
+    +"· 置信规则：prob≥"+TH.tau_high+" 直选；"+TH.tau_low+"≤prob<"+TH.tau_high+" 保守升档；prob<"+TH.tau_low+" 弃判落 default\n"
+    +"\n决策路径：\n"+path.map(function(s,i){ return (i+1)+". "+s; }).join("\n")
+    +"\n\n最终决策：→ "+c.name+" · 档位 "+tier+" · "+TIERS[tier].model
+    +(review?" · 人工复核 + 禁缓存":"")+(R.use_private?" · 私有化通道":"");
   setPl(4, review?"skip":"hit", review?"强制复核":"出决策", total-R.jev_ms,
     "→ "+c.name+"（"+tier+"）"+(review?" · review_required":"")+(R.use_private?" · 私有化通道":""),
-    "决策路径：\n"+path.map(function(s,i){ return (i+1)+". "+s; }).join("\n"));
+    detail);
   renderDecision(dec); renderProbs(dec); renderSig(dec); setFinal(dec); emitLog(R,dec,total);
 }
 /* ---- OUT 最终结果节点：L4 决策之后的收口（明确本次路由的落点） ---- */
