@@ -1094,7 +1094,7 @@ function buildGlmRequest(text, mode, candidates, vecHits, gr){
       PROBES.map(function(p){ return "· " + p.name + "(" + p.key + ")：" + p.ct; }).join("\n") +
       "\n只输出一个 JSON 对象，不要输出任何其他文字。格式：{\"probs\":{\"" + keysAll.join("\":0-1,\"") + "\":0-1},\"top\":\"" + keysAll.join("|") + "\",\"reason\":\"一句话理由\"}";
     return {
-      model: CFG.glmModel || "GLM-4.6", temperature: 0.1, max_tokens: 300, enable_thinking: false,
+      model: CFG.glmModel || "GLM-4.6", temperature: 0.1, max_tokens: 300, thinking: {type:"low"},
       messages: [
         { role:"system", content: sysPrompt },
         { role:"user", content: text }
@@ -1145,7 +1145,7 @@ function buildGlmRequest(text, mode, candidates, vecHits, gr){
     "2. probs 只需给出各候选的概率。\n" +
     "3. 只输出一个 JSON 对象：{\"probs\":{\"" + cands.map(function(c){ return c.key; }).join("\":0-1,\"") + "\":0-1},\"top\":\"" + cands.map(function(c){ return c.key; }).join("|") + "|none\",\"reason\":\"一句话理由\"}";
   return {
-    model: CFG.glmModel || "GLM-4.6", temperature: 0.1, max_tokens: 300, enable_thinking: false,
+    model: CFG.glmModel || "GLM-4.6", temperature: 0.1, max_tokens: 300, thinking: {type:"low"},
     messages: [
       { role:"system", content: sysCand },
       { role:"user", content: text }
