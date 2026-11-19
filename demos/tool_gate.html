@@ -167,6 +167,36 @@ select:focus,input[type=text]:focus{border-color:var(--jev);}
 #toast.show{opacity:.92; transform:translateX(-50%) translateY(0);}
 .demo-flag{display:none; margin-top:10px; font-size:11px; color:var(--glm); background:var(--glm-bg); border-radius:6px; padding:5px 10px;}
 .demo-flag.show{display:inline-block;}
+/* ---- 风控管道（时间线轴样式，与语义路由测试台同款） ---- */
+#pipe{display:flex; flex-direction:column; gap:0;}
+.pl{position:relative; padding:9px 10px 9px 14px; border-left:3px solid var(--line-1); margin-left:8px;}
+.pl::before{
+  content:""; position:absolute; left:-7px; top:16px;
+  width:11px; height:11px; border-radius:50%;
+  background:var(--card); border:2px solid var(--line-1);
+}
+.pl.hit{border-left-color:var(--jev);} .pl.hit::before{background:var(--jev); border-color:var(--jev);}
+.pl.skip{border-left-color:var(--amber);} .pl.skip::before{background:var(--amber); border-color:var(--amber);}
+.pl.pass{border-left-color:var(--ink-4);} .pl.pass::before{border-color:var(--ink-4);}
+.pl.err{border-left-color:var(--red);} .pl.err::before{background:var(--red); border-color:var(--red);}
+.pl-head{display:flex; align-items:center; gap:8px; cursor:pointer;}
+.pl-tag{font-size:10px; font-weight:700; color:var(--ink-2); background:var(--bg); border:0.5px solid var(--line-1); border-radius:4px; padding:1px 6px;}
+.pl-name{font-size:13px; font-weight:600;}
+.pl-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px; white-space:nowrap;}
+.pl-st.hit{background:var(--jev-bg); color:var(--jev);}
+.pl-st.skip{background:var(--amber-bg); color:var(--amber);}
+.pl-st.err{background:var(--red-bg); color:var(--red);}
+.pl-st.pass{background:var(--bg); color:var(--ink-3);}
+.pl-ms{font-size:11px; color:var(--ink-4); margin-left:auto; white-space:nowrap;}
+.pl-brief{font-size:12px; color:var(--ink-3); margin:3px 0 0 0;}
+.pl-detail{display:none; margin-top:7px;}
+.pl-detail.open{display:block;}
+.pl-detail pre{
+  font-size:10px; line-height:1.5; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px; padding:8px 10px;
+  color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+}
+.pl-arrow{font-size:11px; color:var(--ink-4); margin-left:14px; line-height:1;}
 </style>
 </head>
 <body>
@@ -195,6 +225,11 @@ select:focus,input[type=text]:focus{border-color:var(--jev);}
         <button class="btn primary" id="go" onclick="gate()">风 控 闸 门</button>
         <span class="tip">user_authorized 正向题：p≥0.8 指令一致 · p&lt;0.55 疑似注入</span>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>风控管道 <span class="n">L0 调用上下文 → L1 Jev 并行闸门 → L2 裁决 · 点击节点展开输入输出</span></h2>
+      <div id="pipe"></div>
     </div>
 
     <div class="card">
@@ -356,21 +391,21 @@ async function callJev(tool,par,instr){
     if(!(r.status>=200&&r.status<300)){
       var etxt="";
       try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
-      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0,req:body};
     }
     var data=await r.json();
-    var ms=Date.now()-t0, a=data.answers||{}, out={ok:true,ms:ms,probs:{}};
+    var ms=Date.now()-t0, a=data.answers||{}, out={ok:true,ms:ms,probs:{},req:body,raw:data};
     GATES.forEach(function(g){
       var v=a[g.k];
       out.probs[g.k]=(v&&typeof v.noul==="number")?v.noul:((v&&typeof v.p==="number")?v.p:null);
     });
     if(Object.keys(out.probs).every(function(k){ return out.probs[k]==null; }))
-      return {ok:false,err:"响应缺闸门数据："+JSON.stringify(data).slice(0,200),ms:ms};
+      return {ok:false,err:"响应缺闸门数据："+JSON.stringify(data).slice(0,200),ms:ms,req:body};
     return out;
   }catch(e){
     var em=String(e);
     if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
-    return {ok:false,err:em,ms:Date.now()-t0};
+    return {ok:false,err:em,ms:Date.now()-t0,req:body};
   }finally{ if(timer) clearTimeout(timer); }
 }
 /* ---- 降级：本地规则基线（模拟 noul 值） ---- */
@@ -486,6 +521,41 @@ function addExec(s){
   if(EXEC.length>40) EXEC.pop();
   document.getElementById("elog").textContent=EXEC.length?EXEC.join("\n"):"—";
 }
+/* ---- 风控管道可视化（L0 调用上下文 → L1 Jev 闸门 → L2 裁决，节点点击展开） ---- */
+var PIPE=[
+  {id:"L0",name:"CallContext 调用上下文",brief:"工具 + 参数 JSON + 用户指令原文（一致性判定基准）"},
+  {id:"L1",name:"JevGates 并行闸门",brief:"单请求 4×noul：fund_related / irreversible / sensitive_data / user_authorized（点击展开模型输入与原始返回）"},
+  {id:"L2",name:"Verdict 风控裁决",brief:"疑似注入拦截 · 高危进 HITL 审批 · 一致放行自动执行"}
+];
+function renderPipe(){
+  var h="";
+  PIPE.forEach(function(p,i){
+    h+='<div class="pl pass" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
+      +'<span class="pl-tag">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
+      +'<span class="pl-st pass" id="pst_'+i+'">待命</span><span class="pl-ms" id="pms_'+i+'"></span></div>'
+      +'<p class="pl-brief">'+p.brief+'</p>'
+      +'<div class="pl-detail" id="pd_'+i+'"><pre>—</pre></div></div>';
+    if(i<PIPE.length-1) h+='<div class="pl-arrow">▼</div>';
+  });
+  document.getElementById("pipe").innerHTML=h;
+}
+function toggleDetail(i){ document.getElementById("pd_"+i).classList.toggle("open"); }
+function setPl(i,state,st,ms,brief,detail){
+  var el=document.getElementById("pl_"+i);
+  if(!el) return;
+  el.className="pl "+state;
+  var stEl=document.getElementById("pst_"+i);
+  stEl.className="pl-st "+state; stEl.textContent=st;
+  document.getElementById("pms_"+i).textContent=(ms!=null)?(ms+" ms"):"";
+  if(brief!=null) el.querySelector(".pl-brief").textContent=brief;
+  if(detail!=null) document.getElementById("pd_"+i).querySelector("pre").textContent=detail;
+}
+function resetPipe(){
+  PIPE.forEach(function(_,i){
+    setPl(i,"pass","待命",null,null,null);
+    document.getElementById("pd_"+i).classList.remove("open");
+  });
+}
 /* ---- 主流程 ---- */
 var stats={n:0};
 async function gate(){
@@ -495,20 +565,50 @@ async function gate(){
   if(!instr){ toast("请填写用户指令原文（用于一致性判定）"); return; }
   document.getElementById("go").disabled=true;
   document.getElementById("go").textContent="闸门检查中…";
+  resetPipe();
   document.getElementById("rep").innerHTML='<div id="dec_empty">闸门检查中…（4×noul 并行）</div>';
   document.getElementById("demoFlag").className="demo-flag";
   var t0=Date.now();
   try{
+    /* L0 调用上下文 */
+    setPl(0,"hit","就绪",Date.now()-t0,TOOLS[tool].name+" · 指令 "+instr.length+" 字符",
+      "调用上下文：\n"
+      +"· 工具："+TOOLS[tool].name+"（"+tool+"）\n"
+      +"· 参数："+par+"\n"
+      +"· 用户指令原文："+instr+"\n"
+      +"· state 截断上限："+TH.state_max_chars+" 字符（本次指令 "+instr.length+"）\n"
+      +"· user_authorized 为正向题：p≥"+TH.tau_high+" 判定指令与本次调用一致；p<"+TH.tau_low+" 疑似注入/越权");
     var jr=await callJev(tool,par,instr);
     var total=Date.now()-t0, demo=false, probs=null;
-    if(jr.ok){ probs=jr.probs; }
-    else{
+    /* L1 并行闸门 */
+    if(jr.ok){
+      probs=jr.probs;
+      setPl(1,"hit","返回",jr.ms,GATES.length+"×noul 并行闸门完成",
+        "模型输入（实际发送的请求体）：\n"+JSON.stringify(jr.req,null,2).slice(0,2400)
+        +"\n\n──────── 原始返回 ────────\n"+JSON.stringify(jr.raw,null,2).slice(0,1600));
+    }else{
       var em=jr.err||"未知错误";
       if(/401|invalid API key/i.test(em)) em+=" → Jev 密钥失效，改用本地基线";
       toast("Jev 不可用（"+em.slice(0,60)+"），已降级本地基线演示");
       probs=localBaseline(tool,par,instr); demo=true;
+      setPl(1,"err","降级",jr.ms,"Jev 不可用 → 本地规则基线（模拟值）",
+        (jr.req?"模型输入（实际发送的请求体）：\n"+JSON.stringify(jr.req,null,2).slice(0,1200)+"\n\n":"")
+        +"失败原因："+em+"\n→ 已降级本地规则基线，以下闸门值为模拟，仅供界面演示");
     }
     var d=render(tool,par,instr,probs,demo,total);
+    /* L2 风控裁决 */
+    var lv=(d.cls==="block")?"err":(d.cls==="hold"?"skip":(d.cls==="pass"?"hit":"skip"));
+    setPl(2,lv, d.label.replace(/^.*? · /,""), null, d.why[0].slice(0,60),
+      "裁决输入：\n"
+      +"· user_authorized（指令一致性，正向）：p="+fmt(probs.user_authorized)+"（≥"+TH.tau_high+" 一致 · <"+TH.tau_low+" 疑似注入）\n"
+      +"· 高风险组：fund_related="+fmt(probs.fund_related)+" · irreversible="+fmt(probs.irreversible)+" · sensitive_data="+fmt(probs.sensitive_data)+"（≥"+TH.tau_low+" 命中）\n"
+      +(demo?"· ⚠ 本笔为本地规则模拟值，非 Jev 真实判定\n":"")
+      +"\n决策路径：\n"+d.why.map(function(s,i){ return (i+1)+". "+s; }).join("\n")
+      +"\n\n四态决策规则（阈值 TH={τ_high:"+TH.tau_high+", τ_low:"+TH.tau_low+"}）：\n"
+      +"· user_authorized < τ_low → 拦截：用户指令与本次调用不一致，疑似提示词注入/越权调用 → 一律终止并审计\n"
+      +"· 高风险组任一 ≥ τ_low（fund_related / irreversible / sensitive_data）→ HITL 审批：挂起进入人工审批队列，批准前不执行\n"
+      +"· 无高危命中 + user_authorized ≥ τ_high → 自动执行：低风险且指令一致\n"
+      +"· 其余（信号模糊）→ 升级确认：向用户二次确认后再执行");
     stats.n++;
     document.getElementById("st_n").textContent=stats.n;
     emitLog(tool,par,instr,probs,d,demo,jr.ok?jr.ms:null,total);
@@ -543,6 +643,7 @@ function emitLog(tool,par,instr,probs,d,demo,jevMs,total){
 /* ---- 清空 / 初始化 ---- */
 function clearAll(){
   stats={n:0}; QUEUE=[]; EXEC=[];
+  resetPipe();
   renderQueue();
   document.getElementById("rep").innerHTML='<div id="dec_empty">尚无裁决 —— 填写调用并执行风控闸门</div>';
   document.getElementById("elog").textContent="—";
@@ -551,7 +652,7 @@ function clearAll(){
   document.getElementById("demoFlag").className="demo-flag";
   toast("会话已清空（含审批队列）");
 }
-setChannel(); initChips(); renderQueue();
+setChannel(); initChips(); renderQueue(); renderPipe();
 probeChannel("连通性自检").then(function(p){
   if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
   else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用（HTTP "+p.code+"）· 执行闸门将自动降级本地基线";
