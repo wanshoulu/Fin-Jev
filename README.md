@@ -14,7 +14,7 @@
 | --- | --- |
 | **Jev** | **"System One（系统一）模型"**——美国旧金山 TypeSafe AI（创始人 Diogo Almeida 为前 OpenAI RLHF 研究员、InstructGPT 论文作者之一）2026 年 9 月发布的首个该类模型：**不生成任何文本**，给它一份状态和若干道带判据的类型化问题，它直接返回带校准概率的结构化决策（官方口径见 [TypeSafe 发布博客](https://typesafe.ai/blog/introducing-system-one-models-and-jev)：端到端 70~500ms，宣称同类任务比前沿 LLM 快 40~200 倍）。名字取自经济学家杰文斯（Jevons）。原版 API 未对中国大陆开放，本项目用**博查的中国版**（模型名 `bocha-jev-v1`，[open.bocha.cn](https://open.bocha.cn)） |
 | **Fin-Jev** | **Fin**（银行金融场景）+ **Jev**（决策引擎）——验证"用 Jev 做银行客服意图路由"这条技术路线的 PoC |
-| **GLM** | 智谱的生成式大模型（本项目用 `glm-5.3-flash`），负责模糊流量的语义精判 |
+| **GLM** | 智谱的生成式大模型（本项目用 `GLM-4.6`，Coding Plan 走 `/api/coding/paas/v4`），负责模糊流量的语义精判 |
 | noul | Jev 三种问题类型之一（另两种 Choice 候选选择、Score 等级评分，本项目未用）：布尔命题判定，每道是非题独立返回 0~1 连续概率（如 0.87 = 87% 认为命中）而非硬标签——连续概率是门控分诊的原料 |
 
 **要解决的问题**：银行手机 App 的客服消息首先要路由进业务队列（转账 / 理财 / 账户 / 挂失止付 / 投诉 / 生活缴费）。三条传统路线各有硬伤：微调小模型要几千条标注、加意图重新训练，知识烧进参数无法审计；LLM 直接分类 2~4 秒一条还按 token 计费，多分类概率挤在中间地带；图谱 + LLM 先建图才有路由，检索链路自带失败点。
@@ -34,17 +34,32 @@ python jev_proxy.py        # Python 3.8+，零依赖
 打开 http://127.0.0.1:8787 ，点快捷 chips 里的「我的银行卡丢了！赶紧帮我挂失冻结」：
 Jev 卡片秒回（挂失止付 87%，gap 0.05 触发升级）→ GLM 卡片约 3 秒后到达，复核 95%。
 
-**Key 配置**（源码零 Key，真实密钥永不入库）：
+**Key / 模型配置**（源码零 Key，真实密钥永不入库）：统一入口 `demos/model_settings.html` **模型配置中心**——Jev / GLM 的模型名与 Key 一处配置、全部测试台立即生效（存本机 localStorage `finjev_cfg_v1`，优先级高于各台独立面板）；每个测试台右上角「⚙ 模型配置」可直达。
 
 | 引擎 | 必需？ | 配置方式 |
 | --- | --- | --- |
-| Jev（Bocha） | 必需 | 页面 ⚙ 填 [open.bocha.cn](https://open.bocha.cn) Key（存本机 localStorage）；或 `jev_key.local.json` 填 `{"apiKey": "..."}` |
-| GLM（智谱，可选） | 可选 | `server/glm_key.local.json` 填 Key（Coding Plan 走 `/api/coding/paas/v4`）。不填则 GLM 卡片降级为本地基线（明确标注），门控演示不受影响 |
+| Jev（Bocha） | 必需 | 配置中心留空 = 走同源代理 `BUILTIN_JEV` 注入（服务器 `jev_key.local.json` 填 `{"apiKey": "..."}`）；file:// 直开时在配置中心填 [open.bocha.cn](https://open.bocha.cn) Key（仅存本机） |
+| GLM（智谱，可选） | 可选 | 配置中心 GLM 卡留空 = 代理注入（`server/glm_key.local.json`）。不填则 GLM 卡片降级为本地基线（明确标注），门控演示不受影响 |
 | 向量库（OntoMind，可选） | 可选 | 本地 17386 端口。不在线时自动降级纯图谱选题 |
 
 安全模型：前端只发 `Bearer BUILTIN_*` 占位符，`jev_proxy.py` 从 `*.local.json`（gitignore 排除）读取真实 Key 替换。
 
 也可以直接双击 `demos/duel_chat.html`——页面自动探测本地转发器并切换完整地址通道。
+
+## 部署到服务器
+
+静态演示页 + git 推送即部署：服务器上放一个裸仓库，`post-receive` 钩子自动 checkout 到站点目录，`jev_proxy.py` 同时托管静态页。
+
+```bash
+# 服务器（一次性）
+git init --bare /srv/fin-jev.git
+printf '#!/bin/sh\nGIT_WORK_TREE=/srv/fin-jev GIT_DIR=/srv/fin-jev.git git checkout -f main\n' > /srv/fin-jev.git/hooks/post-receive
+chmod +x /srv/fin-jev.git/hooks/post-receive
+
+# 本地（以后每次发布）
+git remote add server user@your-server:/srv/fin-jev.git
+git push server main          # 推送即部署，静态页即时生效、无需重启
+```
 
 ## How it works
 
@@ -100,7 +115,7 @@ Jev 卡片秒回（挂失止付 87%，gap 0.05 触发升级）→ GLM 卡片约 
 
 ## Demos：按演进顺序
 
-每个 demo 是探索一个阶段留下的可运行产物，互不依赖，均可双击直开（file:// 已适配）：
+每个 demo 是探索一个阶段留下的可运行产物，互不依赖，均可双击直开（file:// 已适配）。`demos/index.html` 是卡片索引，`demos/workbench.html` 是统一工作台（左栏切换 5 个测试台）：
 
 | # | 文件 | 回答的问题 |
 | --- | --- | --- |
@@ -109,7 +124,12 @@ Jev 卡片秒回（挂失止付 87%，gap 0.05 触发升级）→ GLM 卡片约 
 | 2 | `demos/jev_vs_llm_demo.html` | 多分类直问 vs noul 化差多少？（25%→83% 现场复现） |
 | 3 | `demos/jev_pipeline_demo.html` | 聚合 + 门控流水线怎么走？8 条典型消息全可复跑 |
 | 4 | `demos/duel_demo.html` | 双引擎同题对决（静态版） |
-| 5 | `demos/duel_chat.html` | **最终形态**：对话式测试台（推荐入口，截图即此页） |
+| 5 | `demos/duel_chat.html` | 对话式双引擎测试台（截图即此页） |
+| 6 | `demos/semantic_routing.html` | 意图路由流水线：6×noul 并行 + 三层门控 + GLM 升级复核 |
+| 7 | `demos/compliance_qc.html` | 坐席话术合规质检：6×noul 并行出六维概率 + 可行改写 |
+| 8 | `demos/guardrail.html` | GenAI 输出护栏：5×noul 三态闸门（放行 / 降级 / 拦截） |
+| 9 | `demos/tool_gate.html` | Agent 工具调用风控：低危自动执行、高危 HITL 审批、注入拦截 |
+| 10 | `demos/model_settings.html` | 模型配置中心：Jev / GLM 模型名与 Key 一处配置、全部演示生效 |
 
 ## 仓库结构
 
@@ -129,12 +149,14 @@ Fin-Jev/
 │   └── trace_panel.png        # 报文面板截图
 ├── server/jev_proxy.py        # 本地一体化服务器：静态页 + Jev/GLM/向量库转发 + 一键重编译
 ├── jev_finance_poc.py         # E0：API 能力验证脚本
-└── demos/                     # 上表 6 个演进 demo
+└── demos/                     # 上表 0~10 号演示 + index.html（卡片索引）+ workbench.html（统一工作台）
 ```
 
 ## 常见问题
 
 **没有 GLM Key 能用吗？** 能。Jev 侧完整真实调用，GLM 卡片降级为本地基线（标注"本地基线·演示"）。
+
+**多个演示的模型名 / Key 要挨个配吗？** 不用。`demos/model_settings.html` 统一配置一处保存全部生效（优先级高于各台独立面板），每个测试台右上角「⚙ 模型配置」可直达。
 
 **没有向量库能用吗？** 能。OntoMind 不在线时自动降级纯图谱选题，页面流水线面板有明确标注。
 
