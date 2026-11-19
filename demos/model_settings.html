@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>模型配置中心 · 统一配置 Jev / GLM</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+  --ok:#0e7a5f;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh; padding:22px 18px 40px;
+}
+.wrap{max-width:880px; margin:0 auto;}
+.brand-name{font-size:19px; font-weight:700; letter-spacing:.5px;}
+.brand-name .sub{font-size:12px; font-weight:400; color:var(--ink-3); margin-left:10px;}
+.banner{display:flex; align-items:center; gap:14px; margin-bottom:12px;}
+#netbar{
+  font-size:12px; color:var(--ink-2);
+  background:var(--card); border:0.5px solid var(--line-1);
+  border-radius:8px; padding:8px 14px; margin-bottom:16px;
+}
+.card{
+  background:var(--card); border:0.5px solid var(--line-1);
+  border-radius:12px; padding:18px 20px; margin-bottom:16px;
+}
+.card h2{font-size:15px; margin-bottom:4px; display:flex; align-items:center; gap:8px;}
+.mtag{font-size:10px; font-weight:600; border-radius:4px; padding:2px 7px;}
+.mtag.jev{background:var(--jev-bg); color:var(--jev);}
+.mtag.glm{background:var(--glm-bg); color:var(--glm);}
+.card .lead{font-size:12px; color:var(--ink-3); margin-bottom:14px;}
+.frow{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+.frow label{width:88px; flex:0 0 88px; font-size:12px; color:var(--ink-2); text-align:right;}
+.frow input[type=text], .frow input[type=password]{
+  flex:1; min-width:220px; font-family:inherit; font-size:13px;
+  border:1px solid var(--line-1); border-radius:8px; padding:8px 12px;
+  background:#fff; color:var(--ink-1);
+}
+.frow input:focus{outline:2px solid var(--jev); outline-offset:-1px;}
+.note{font-size:11px; color:var(--ink-3); background:var(--line-2); border-radius:6px; padding:8px 12px; margin-bottom:14px; line-height:1.7;}
+.note code{font-size:10px; background:#fff; border:0.5px solid var(--line-1); padding:1px 4px; border-radius:3px;}
+.btn{
+  font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
+  border:1px solid var(--line-1); background:#fff; color:var(--ink-2);
+  border-radius:8px; padding:7px 16px;
+  transition:filter .15s, transform .05s;
+}
+.btn:hover{filter:brightness(.97);} .btn:active{transform:translateY(1px);}
+.btn.primary{background:var(--jev); border-color:var(--jev); color:#fff;}
+.btn.glm{background:var(--glm); border-color:var(--glm); color:#fff;}
+.btn.danger{background:#fff; border-color:var(--red); color:var(--red);}
+.health{
+  font-size:12px; border-radius:7px; padding:6px 12px; margin-top:4px;
+  display:none; align-items:center; gap:8px;
+}
+.health.ok{display:flex; background:var(--jev-bg); color:var(--jev);}
+.health.bad{display:flex; background:var(--red-bg); color:var(--red);}
+.actions{display:flex; gap:10px; margin-top:4px; flex-wrap:wrap;}
+.toast{
+  position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink-1); color:#fff; font-size:12px;
+  border-radius:8px; padding:9px 18px; opacity:0; pointer-events:none;
+  transition:opacity .25s, transform .25s; z-index:50;
+}
+.toast.show{opacity:.95; transform:translateX(-50%) translateY(0);}
+.applyhint{font-size:12px; color:var(--jev); background:var(--jev-bg); border-radius:7px; padding:8px 14px; margin-bottom:16px;}
+.foot{font-size:11px; color:var(--ink-4); line-height:1.8; margin-top:6px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="banner">
+    <span class="brand-name">模型配置中心<span class="sub">统一配置 Jev 决策模型 / GLM 对话模型 · 全部演示共享生效</span></span>
+  </div>
+  <div id="netbar">检测通道中…</div>
+  <div class="applyhint">✔ 此处保存后，意图识别 / 语义路由 / 话术质检 / 输出护栏 / 工具风控等全部演示立即读取同一份配置（存于浏览器 localStorage，键 <code>finjev_cfg_v1</code>）。</div>
+
+  <div class="card">
+    <h2><span class="mtag jev">Jev</span>决策模型（bocha-jev-v1 · 非生成式概率判定）</h2>
+    <div class="lead">所有测试台的 noul/choice 判定请求均走此模型；每台 1 次请求并行 4~6 问。</div>
+    <div class="frow"><label>模型名</label><input id="cfg_jev_model" type="text" placeholder="bocha-jev-v1"></div>
+    <div class="frow"><label>API Key</label><input id="cfg_jev_key" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入"></div>
+    <div class="note">同源访问（8787 / 服务器）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需填入官方 Key（open.bocha.cn 免费注册；仅存于浏览器 localStorage）。直连官方端点 <code>https://jev.bocha.cn/v1/systemone</code>。</div>
+    <div class="actions">
+      <button class="btn" onclick="probeJev()">连通自检</button>
+      <span class="health" id="health_jev"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="mtag glm">GLM</span>对话大模型（意图识别双引擎 · 结构化输出）</h2>
+    <div class="lead">意图识别测试台的 LLM 引擎走此模型（JSON 结构化分类）；同源代理端点 <code>/v1/glm</code>。</div>
+    <div class="frow"><label>模型名</label><input id="cfg_glm_model" type="text" placeholder="GLM-4.6"></div>
+    <div class="frow"><label>API Key</label><input id="cfg_glm_key" type="password" placeholder="留空 = 走同源代理 BUILTIN 注入"></div>
+    <div class="note">同源访问时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 的 GLM Key 注入并转发 <code>open.bigmodel.cn</code>。file:// 直开时需填入自己的 Key（走官方端点直连）。</div>
+    <div class="actions">
+      <button class="btn glm" onclick="probeGlm()">连通自检</button>
+      <span class="health" id="health_glm"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="actions">
+      <button class="btn primary" onclick="saveCfg()">保存配置（全部演示立即生效）</button>
+      <button class="btn danger" onclick="clearCfg()">清除统一配置</button>
+    </div>
+    <div class="foot" id="meta" style="margin-top:12px;"></div>
+  </div>
+
+  <p class="foot">说明：① 同源通道下前端永不持有真实 Key，只发 <code>BUILTIN_JEV</code> / <code>BUILTIN</code> 占位符由代理替换；② 优先级：统一配置（本页）&gt; 各台独立 Key 面板；③ 清除后各台回到「留空 = 内置 Key 注入」的默认状态。</p>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+/* ---- 通道锁定（与其余各台一致）----
+   http(s) → 同源代理（/v1/systemone、/v1/glm）
+   file://  → Jev 直连官方端点；GLM 直连 open.bigmodel.cn（需自备 Key） */
+var chanBase="", glmBase="";
+if(location.protocol==="http:"||location.protocol==="https:"){
+  chanBase="/v1/systemone"; glmBase="/v1/glm";
+  document.getElementById("netbar").innerHTML="通道：<b>同源代理</b>（/v1/systemone · /v1/glm，BUILTIN 注入）· 配置全演示共享";
+}else{
+  chanBase="https://jev.bocha.cn/v1/systemone";
+  glmBase="https://open.bigmodel.cn/api/coding/paas/v4/chat/completions";
+  document.getElementById("netbar").innerHTML="通道：<b>官方直连</b>（file:// 直开）· 需在下方填入真实 Key";
+}
+var CFG_STORE="finjev_cfg_v1";
+var DEFAULTS={jevModel:"bocha-jev-v1", jevKey:"", glmModel:"GLM-4.6", glmKey:""};
+
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+function toast(msg){
+  var t=document.getElementById("toast"); t.textContent=msg;
+  t.classList.add("show"); clearTimeout(t._tm);
+  t._tm=setTimeout(function(){ t.classList.remove("show"); },2600);
+}
+function health(el, ok, text){
+  var h=document.getElementById(el);
+  h.className="health "+(ok?"ok":"bad");
+  h.textContent=(ok?"✓ ":"✗ ")+text;
+}
+/* ---- 加载：统一键 → 表单；展示最近保存时间 ---- */
+function loadCfg(){
+  var cfg=Object.assign({},DEFAULTS);
+  try{
+    var raw=localStorage.getItem(CFG_STORE);
+    if(raw){ var saved=JSON.parse(raw)||{}; for(var k in DEFAULTS){ if(typeof saved[k]==="string" && saved[k]) cfg[k]=saved[k]; } }
+  }catch(e){}
+  document.getElementById("cfg_jev_model").value=cfg.jevModel;
+  document.getElementById("cfg_jev_key").value=cfg.jevKey;
+  document.getElementById("cfg_glm_model").value=cfg.glmModel;
+  document.getElementById("cfg_glm_key").value=cfg.glmKey;
+  var meta="未保存过统一配置（各台使用各自默认值）";
+  try{
+    var ts=(JSON.parse(localStorage.getItem(CFG_STORE)||"null")||{}).updatedAt;
+    if(ts) meta="统一配置保存于 "+ts+" · 当前已对全部演示生效";
+  }catch(e){}
+  document.getElementById("meta").textContent=meta;
+}
+/* ---- 保存：写统一键 finjev_cfg_v1 ---- */
+function saveCfg(){
+  var cfg={
+    jevModel:(document.getElementById("cfg_jev_model").value.trim()||DEFAULTS.jevModel),
+    jevKey:document.getElementById("cfg_jev_key").value.trim(),
+    glmModel:(document.getElementById("cfg_glm_model").value.trim()||DEFAULTS.glmModel),
+    glmKey:document.getElementById("cfg_glm_key").value.trim(),
+    updatedAt:new Date().toLocaleString("zh-CN",{hour12:false})
+  };
+  try{ localStorage.setItem(CFG_STORE,JSON.stringify(cfg)); }
+  catch(e){ toast("保存失败：localStorage 不可用"); return; }
+  loadCfg(); toast("已保存，全部演示立即生效");
+}
+function clearCfg(){
+  try{ localStorage.removeItem(CFG_STORE); }catch(e){}
+  loadCfg(); toast("已清除，回到默认（留空 = 内置 Key 注入）");
+}
+/* ---- Jev 连通自检：真实 noul 探针 ---- */
+async function probeJev(){
+  var m=document.getElementById("cfg_jev_model").value.trim()||DEFAULTS.jevModel;
+  var k=document.getElementById("cfg_jev_key").value.trim();
+  var t0=Date.now();
+  try{
+    var r=await fetch(chanBase,{method:"POST",
+      headers:{"Authorization":"Bearer "+(k||"BUILTIN_JEV"),"Content-Type":"application/json"},
+      body:JSON.stringify({model:m,state:{message:"连通性探针"},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})});
+    if(!r.ok){ health("health_jev",false,"HTTP "+r.status+"（Key 无效或通道不可用）"); return; }
+    var j=await r.json();
+    var p=j&&j.answers&&j.answers.probe?(j.answers.probe.noul!==undefined?j.answers.probe.noul:"—"):"—";
+    health("health_jev",true,"模型 "+esc(m)+" 连通 · HTTP 200 · "+(Date.now()-t0)+"ms · probe noul="+p);
+  }catch(e){ health("health_jev",false,"请求失败："+(e&&e.message||e)); }
+}
+/* ---- GLM 连通自检：最小 chat 请求 ---- */
+async function probeGlm(){
+  var m=document.getElementById("cfg_glm_model").value.trim()||DEFAULTS.glmModel;
+  var k=document.getElementById("cfg_glm_key").value.trim();
+  var t0=Date.now();
+  try{
+    var r=await fetch(glmBase,{method:"POST",
+      headers:{"Authorization":"Bearer "+(k||"BUILTIN"),"Content-Type":"application/json"},
+      body:JSON.stringify({model:m,messages:[{role:"user",content:"只回复两个字：正常"}],temperature:0.1,max_tokens:16})});
+    if(!r.ok){ health("health_glm",false,"HTTP "+r.status+"（Key 无效或通道不可用）"); return; }
+    var j=await r.json();
+    var c=j&&j.choices&&j.choices[0]&&j.choices[0].message?j.choices[0].message.content:"(空)";
+    health("health_glm",true,"模型 "+esc(m)+" 连通 · HTTP 200 · "+(Date.now()-t0)+"ms · 回复「"+esc(String(c).slice(0,20))+"」");
+  }catch(e){ health("health_glm",false,"请求失败："+(e&&e.message||e)); }
+}
+loadCfg();
+</script>
+</body>
+</html>

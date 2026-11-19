@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>坐席话术质检台 · 话术合规全量筛查</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  padding-bottom:40px;
+}
+#netbar{
+  font-size:11px; color:var(--ink-3); padding:6px 18px;
+  background:var(--card); border-bottom:0.5px solid var(--line-2);
+  display:flex; gap:14px; align-items:center;
+}
+#netbar b{color:var(--jev); font-weight:600;}
+.topbar{
+  background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+  color:#fff; padding:13px 20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+.brand-mark{
+  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+  background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
+.topbar .btns{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;}
+.btn{
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
+}
+.btn:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.btn:focus-visible{outline:2px solid var(--jev); outline-offset:2px;}
+.btn.primary{background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600;}
+.btn.primary:hover{background:#0c6650; color:#fff; border-color:#0c6650;}
+.btn.primary:active{transform:translateY(1px);}
+.btn.dark{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.25); color:#fff;}
+.btn.dark:hover{background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.45); color:#fff;}
+.btn.dark:focus-visible{outline-color:#fff;}
+.btn:disabled{opacity:.6; cursor:default;}
+.main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:12px; padding:12px 18px;}
+@media (max-width:1020px){ .main{grid-template-columns:1fr;} }
+.colL,.colR{display:flex; flex-direction:column; gap:12px; min-width:0;}
+.card{
+  background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px;
+  padding:15px 17px; box-shadow:0 1px 2px rgba(23,24,28,.04);
+}
+.card h2{font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.card h2::before{content:""; width:7px; height:7px; border-radius:2px; background:var(--jev); flex:0 0 7px;}
+.card h2 .n{font-size:10px; color:var(--ink-4); font-weight:400;}
+#q{
+  width:100%; min-height:130px; resize:vertical;
+  font-family:inherit; font-size:13px; color:var(--ink-1);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:9px 11px;
+  outline:none; transition:border-color .15s;
+}
+#q:focus{border-color:var(--jev);}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.chip{
+  font-size:11px; cursor:pointer; font-family:inherit;
+  background:var(--bg); color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:20px; padding:3px 10px;
+  transition:all .15s; white-space:nowrap;
+}
+.chip:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.chip.sp{border-color:var(--amber-bg); color:var(--amber); background:var(--amber-bg);}
+.chip.sp:hover{border-color:var(--amber);}
+.inrow{display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;}
+.inrow .tip{font-size:11px; color:var(--ink-4); margin-left:auto;}
+#dec_empty{color:var(--ink-4); font-size:12px; padding:14px 0; text-align:center;}
+/* 结论徽标 */
+.verdict{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.v-badge{font-size:16px; font-weight:700; padding:5px 18px; border-radius:8px;}
+.v-badge.pass{background:var(--jev-bg); color:var(--jev); border:1px solid var(--jev);}
+.v-badge.warn{background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber);}
+.v-badge.block{background:var(--red-bg); color:var(--red); border:1px solid var(--red);}
+.v-sub{font-size:12px; color:var(--ink-3);}
+.v-act{font-size:12px; color:var(--ink-2); background:var(--bg); border:0.5px dashed var(--line-1); border-radius:6px; padding:6px 10px; margin-top:8px; line-height:1.7;}
+/* 探针行 */
+.probe{border-top:0.5px solid var(--line-2); padding:9px 2px 8px;}
+.probe:first-of-type{border-top:none;}
+.p-head{display:flex; align-items:center; gap:8px;}
+.p-name{font-size:12px; font-weight:600;}
+.p-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px;}
+.p-st.ok{background:var(--jev-bg); color:var(--jev);}
+.p-st.warn{background:var(--amber-bg); color:var(--amber);}
+.p-st.bad{background:var(--red-bg); color:var(--red);}
+.p-st.demo{background:var(--glm-bg); color:var(--glm);}
+.p-ms{font-size:10px; color:var(--ink-4); margin-left:auto; white-space:nowrap;}
+.bar{height:7px; background:var(--bg); border-radius:4px; overflow:hidden; margin-top:6px;}
+.bar>i{display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,var(--jev),#19a97b); width:0; transition:width .4s;}
+.bar>i.warn{background:linear-gradient(90deg,var(--amber),#d97706);}
+.bar>i.bad{background:linear-gradient(90deg,var(--red),#ef4444);}
+.p-crit{font-size:11px; color:var(--ink-3); margin-top:6px; background:#f8f9fb; border:0.5px dashed var(--line-2); border-radius:6px; padding:6px 9px; line-height:1.7;}
+.p-crit b{color:var(--red);}
+/* 规则硬命中 */
+.rhit{margin-top:6px; font-size:11px; color:var(--red); background:var(--red-bg); border-radius:6px; padding:5px 9px;}
+.rhit b{font-weight:700;}
+/* JSONL */
+#jlog{
+  font-size:10px; line-height:1.55; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px;
+  padding:8px 10px; color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+  max-height:200px; overflow:auto;
+}
+/* 统计 */
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.tile{background:var(--bg); border-radius:8px; padding:8px 6px; text-align:center;}
+.tile .v{font-size:16px; font-weight:700; color:var(--ink-1);}
+.tile .k{font-size:10px; color:var(--ink-4); margin-top:1px;}
+/* 模态与 toast */
+#mask{position:fixed; inset:0; background:rgba(23,24,28,.4); display:none; align-items:center; justify-content:center; z-index:50;}
+#mask.open{display:flex;}
+.mbox{background:var(--card); border-radius:12px; padding:20px 22px; width:min(420px,92vw); box-shadow:0 8px 30px rgba(0,0,0,.15);}
+.mbox h3{font-size:15px; margin-bottom:12px;}
+.mbox label{display:block; font-size:12px; color:var(--ink-2); margin:10px 0 4px;}
+.mbox input{width:100%; font-family:inherit; font-size:12px; border:0.5px solid var(--line-1); border-radius:8px; padding:7px 10px; outline:none;}
+.mbox input:focus{border-color:var(--jev);}
+.mbox .note{font-size:11px; color:var(--ink-4); margin-top:8px; line-height:1.6;}
+.mrow{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+#toast{
+  position:fixed; left:50%; bottom:34px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink-1); color:#fff; font-size:12px;
+  padding:8px 16px; border-radius:8px; opacity:0; pointer-events:none;
+  transition:all .25s; z-index:60; max-width:80vw;
+}
+#toast.show{opacity:.92; transform:translateX(-50%) translateY(0);}
+.demo-flag{display:none; margin-top:10px; font-size:11px; color:var(--glm); background:var(--glm-bg); border-radius:6px; padding:5px 10px;}
+.demo-flag.show{display:inline-block;}
+/* ---- 质检管道（节点点击展开，参考语义路由测试台） ---- */
+.pipe{display:flex;flex-direction:column;}
+.pl{border:1px solid var(--line-1); border-radius:10px; padding:10px 12px; background:var(--bg); cursor:pointer; transition:border-color .15s;}
+.pl:hover{border-color:var(--jev);}
+.pl-head{display:flex; align-items:center; gap:8px;}
+.pl-ico{font-size:10px; font-weight:700; color:var(--ink-3); background:var(--line-2); border-radius:5px; padding:2px 6px; letter-spacing:.5px;}
+.pl-name{font-size:13px; font-weight:600; color:var(--ink-1);}
+.pl-st{margin-left:auto; font-size:11px; padding:2px 8px; border-radius:999px; background:var(--line-2); color:var(--ink-3); white-space:nowrap;}
+.pl-st.hit{background:var(--jev-bg); color:var(--jev);}
+.pl-st.warn,.pl-st.skip{background:var(--amber-bg); color:var(--amber);}
+.pl-st.err{background:var(--red-bg); color:var(--red);}
+.pl-ms{font-size:10px; color:var(--ink-4); width:52px; text-align:right;}
+.pl-brief{font-size:11px; color:var(--ink-4); margin-top:5px;}
+.pd{display:none; margin-top:8px;}
+.pd.open{display:block;}
+.pd pre{margin:0; white-space:pre-wrap; word-break:break-all; font-size:10.5px; line-height:1.6; color:var(--ink-2); background:var(--line-2); border-radius:8px; padding:9px 10px; max-height:300px; overflow:auto;}
+.parr{font-size:9px; color:var(--ink-4); text-align:center; padding:3px 0;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">坐席话术质检台<span class="sub">6×noul 违规探针 + 整体定级 · 规则硬命中直标 · 全量筛查事后质检</span></span>
+  </div>
+  <div class="btns">
+    <button class="btn dark" onclick="selfTest()">连接自检</button>
+    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="clearAll()">清空会话</button>
+  </div>
+</header>
+<div id="netbar">通道检测中…</div>
+
+<div class="main">
+  <div class="colL">
+    <div class="card">
+      <h2>坐席对话输入 <span class="n">粘贴多轮坐席对话，做一次全量合规筛查</span></h2>
+      <textarea id="q" placeholder="粘贴坐席对话（可含客户发言）…&#10;例如：坐席：这款产品历史业绩很好，基本稳赚不赔，您可以放心投入。"></textarea>
+      <div class="chips" id="chips"></div>
+      <div class="inrow">
+        <button class="btn primary" id="go" onclick="qc()">执 行 质 检</button>
+        <span class="tip">规则硬命中立即标红 · Jev 探针并行判违规概率</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>质检管道 <span class="n">L0 规则 → L1 Jev 并行探针 → L2 定级 · 点击节点展开输入输出</span></h2>
+      <div class="pipe" id="pipe"></div>
+    </div>
+
+    <div class="card">
+      <h2>质检报告 <span class="n">通过 / 预警 / 拦截 三态 · 命中项引用判据原文</span></h2>
+      <div id="rep"><div id="dec_empty">尚无报告 —— 粘贴对话并执行质检</div></div>
+      <span class="demo-flag" id="demoFlag">⚠ 本地基线·演示：Jev 不可用，以下违规概率为本地关键词模拟值，仅供界面演示</span>
+    </div>
+  </div>
+
+  <div class="colR">
+    <div class="card">
+      <h2>整体风险定级 <span class="n">Jev choice：low / medium / high</span></h2>
+      <div id="overall"><div id="dec_empty">等待质检执行</div></div>
+    </div>
+    <div class="card">
+      <h2>观测 JSONL <span class="n">每笔质检一条 · 审计留痕</span></h2>
+      <div id="jlog">—</div>
+    </div>
+    <div class="card">
+      <h2>会话统计</h2>
+      <div class="tiles">
+        <div class="tile"><div class="v" id="st_n">0</div><div class="k">质检笔数</div></div>
+        <div class="tile"><div class="v" id="st_block">0</div><div class="k">拦截</div></div>
+        <div class="tile"><div class="v" id="st_warn">0</div><div class="k">预警</div></div>
+        <div class="tile"><div class="v" id="st_pass">0</div><div class="k">通过</div></div>
+      </div>
+      <div id="st_ms" style="font-size:11px; color:var(--ink-3); margin-top:8px;">均耗时：—</div>
+    </div>
+  </div>
+</div>
+
+<div id="mask"><div class="mbox">
+  <h3>⚙ Key 设置</h3>
+  <label>Jev API Key（博查 System One）</label>
+  <input id="cfg_jev" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入">
+  <div class="note">同源访问（8787）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需在此填入官方 Key（仅存于浏览器 localStorage）。</div>
+  <div class="mrow">
+    <button class="btn" onclick="closeCfg()">取消</button>
+    <button class="btn" onclick="clearKey()">清除</button>
+    <button class="btn primary" onclick="saveCfg()">保存</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+/* ================= 探针定义（true=命中违规的具体判据，false=合规表现） ================= */
+var PROBES=[
+ {k:"yield_promise",name:"承诺/暗示保本保收益",
+  crit:"理财产品或投资出现「稳赚」「保本」「保证收益」「无风险」「零亏损」等确定性收益承诺或暗示，或以历史业绩宣称未来收益",
+  critOk:"未出现任何确定性收益承诺；收益表述附带不确定性说明"},
+ {k:"risk_disclosure_miss",name:"风险提示缺失",
+  crit:"推荐或介绍产品/投资时只讲收益不讲风险，缺少「投资有风险」「可能亏损」「过往业绩不代表未来」等提示",
+  critOk:"介绍收益时同步说明了对应风险"},
+ {k:"forbidden_words",name:"服务禁语",
+  crit:"出现行业禁语：贬低同行、推诿责任（不知道/不归我管）、不耐烦（催促挂机）、威胁性表述等",
+  critOk:"用语规范礼貌，无禁语"},
+ {k:"misleading",name:"误导销售/夸大表述",
+  crit:"夸大产品功能或业绩、隐瞒重要限制条件、将保险说成存款、混淆产品性质等误导性表述",
+  critOk:"产品介绍客观，未夸大、未混淆性质"},
+ {k:"improper_collect",name:"违规索要密码/验证码",
+  crit:"索要客户密码、短信验证码、支付码，或引导客户将验证码读出/转发给坐席或第三方",
+  critOk:"未索要任何密码验证码，必要核验均引导客户本人操作"},
+ {k:"unauthorized_inducement",name:"未经授权诱导操作",
+  crit:"未经客户授权或绕过流程诱导客户转账、签约、开通业务，或要求客户 remote/共享屏幕等高危操作",
+  critOk:"操作均基于客户明确授权并按流程办理"}
+];
+var OVERALL_CRIT={
+ low:"对话合规：无违规表述，风险提示到位，流程规范",
+ medium:"存在轻微瑕疵：表述欠规范、风险提示不充分，但不构成实质违规",
+ high:"存在明确违规：确定性收益承诺、禁语、索要验证码或诱导操作等实质违规"
+};
+var TH={tau_high:0.8, tau_low:0.55, state_max_chars:4000};
+/* L2 规则捷径：正则硬命中直接标红（不等 Jev） */
+var RULES=[
+ {re:/稳赚|保本保息|保本保收益|保证.{0,4}收益|零风险|无风险|绝不亏(损)?|躺着赚/,name:"确定性收益承诺"},
+ {re:/验证码.{0,8}(发|读|告诉|告诉).{0,4}(我|他|她)|把验证码|收到的验证码告诉我/,name:"索要验证码"},
+ {re:/密码.{0,8}(告诉|告知|提供|输入).{0,4}(我|给)|卡号密码/,name:"索要密码"},
+ {re:/全网最(优|低|高)|业内第一|独此一家|错过不再|仅限今天.{0,6}(最后|仅剩)/,name:"营销禁语/夸大"},
+ {re:/肯定(涨|赚|升)|闭着眼睛(买|投)|稳(赢|操胜券)/,name:"误导性暗示"}
+];
+/* ================= 通道与配置 ================= */
+var JEV_URL="https://jev.bocha.cn/v1/systemone", PROXY_URL="/v1/systemone";
+var KEY_STORE="compliance_qc_keys_v1";
+var CFG={jevKey:"",jevModel:"bocha-jev-v1"};
+var chanBase="", chanName="—";
+try{ var raw=localStorage.getItem(KEY_STORE); if(raw){ CFG=JSON.parse(raw)||CFG; } }catch(e){}
+/* 统一模型配置中心（model_settings.html）写入 finjev_cfg_v1，优先级高于本页独立配置 */
+try{ var _mc=JSON.parse(localStorage.getItem("finjev_cfg_v1")||"null");
+  if(_mc){ if(_mc.jevKey) CFG.jevKey=_mc.jevKey; if(_mc.jevModel) CFG.jevModel=_mc.jevModel; } }catch(e){}
+function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._h); toast._h=setTimeout(function(){ el.classList.remove("show"); },2600); }
+function setChannel(){
+  if(location.protocol==="http:"||location.protocol==="https:"){ chanBase=""; chanName="同源代理 /v1/systemone（BUILTIN_JEV 注入）"; }
+  else { chanBase=JEV_URL; chanName="file:// 直连官方 API"; }
+  document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 6×noul + 1×choice 并行";
+}
+function cfg(){ return CFG.jevKey||"BUILTIN_JEV"; }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+async function probeChannel(text){
+  var t0=Date.now();
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify({model:(CFG.jevModel||"bocha-jev-v1"),state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
+    });
+    var txt=await r.text();
+    var ok=r.status>=200&&r.status<300; /* 401/403 = Key 无效，不可判为可用 */
+    return {ok:ok,code:r.status,ms:Date.now()-t0,raw:txt.slice(0,600)};
+  }catch(e){ return {ok:false,code:0,ms:Date.now()-t0,raw:String(e)}; }
+}
+async function selfTest(){
+  toast("自检中…");
+  var p=await probeChannel("连通性自检");
+  var nb=document.getElementById("netbar");
+  if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
+  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用 · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code+"（将走本地基线）"); }
+}
+/* ---- 配置模态 ---- */
+function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
+function closeCfg(){ document.getElementById("mask").classList.remove("open"); }
+function saveCfg(){
+  CFG.jevKey=document.getElementById("cfg_jev").value.trim();
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  closeCfg(); toast("Key 已保存"); setChannel();
+}
+function clearKey(){
+  document.getElementById("cfg_jev").value=""; CFG.jevKey="";
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  toast("已清除，走 BUILTIN_JEV 注入");
+}
+/* ---- chips ---- */
+var CHIPS=[
+ {cls:"",label:"合规对话（应通过）",
+  eg:"坐席：您好，请问有什么可以帮您？\n客户：我想了解一下你们最近推的那款理财产品。\n坐席：好的。这款产品是 R3 中风险等级，主要投资于债券和存款类资产，近一年年化约 2.8%。需要提醒您，投资有风险，历史业绩不代表未来表现，不保证本金和收益。您可以根据自己的风险承受能力决定是否配置，购买前我们会做风险测评和双录。"},
+ {cls:"sp",label:"违规承诺收益（应拦截）",
+  eg:"坐席：姐，这款您放心买，基本就是稳赚不赔的，我们内部都叫它保本神器，年化至少 5 个点，比存款强多了，您直接把钱转进去就行，不需要再做风险测评了。"},
+ {cls:"sp",label:"禁语 + 索要验证码（应拦截）",
+  eg:"客户：这个我搞不懂啊。\n坐席：这么简单都不懂？行吧，那我直接帮您操作。您手机上收到的验证码发我一下，我帮您把钱转进去，最快了，这个活动仅限今天，错过就没有了。"}
+];
+function initChips(){
+  var h="";
+  CHIPS.forEach(function(c){ h+='<button class="chip '+c.cls+'" onclick="fill(this)" data-eg="'+esc(c.eg)+'">'+c.label+'</button>'; });
+  document.getElementById("chips").innerHTML=h;
+}
+function fill(el){ document.getElementById("q").value=el.getAttribute("data-eg")||""; }
+/* ---- 请求构造：questions 必须是字典（按 key 索引，实测 schema） ---- */
+function buildQuestions(text){
+  var qs={};
+  PROBES.forEach(function(p){
+    qs[p.k]={type:"noul",
+      instructions:"判断该坐席对话中是否存在此违规项",
+      criteria:{true:p.crit, false:p.critOk}};
+  });
+  qs.overall_risk={type:"choice",criteria:OVERALL_CRIT};
+  return qs;
+}
+/* ---- Jev 调用：20s 超时中止 + 状态码先行 ---- */
+async function callJev(text){
+  var t0=Date.now();
+  var body={
+    model:(CFG.jevModel||"bocha-jev-v1"),
+    state:{message:text.length>TH.state_max_chars?text.slice(0,TH.state_max_chars):text},
+    questions:buildQuestions(text)
+  };
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null;
+  var timer=ac?setTimeout(function(){ try{ ac.abort(); }catch(e){} },20000):null;
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify(body),
+      signal:ac?ac.signal:undefined
+    });
+    if(!(r.status>=200&&r.status<300)){
+      var etxt="";
+      try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+    }
+    var data=await r.json();
+    var ms=Date.now()-t0;
+    var a=data.answers||{}, out={ok:true,ms:ms,probs:{},overall:null};
+    PROBES.forEach(function(p){
+      var v=a[p.k];
+      var n=(v&&typeof v.noul==="number")?v.noul:((v&&typeof v.p==="number")?v.p:null);
+      out.probs[p.k]=n;
+    });
+    var ov=a.overall_risk||{};
+    out.overall={choice:(typeof ov.choice==="string")?ov.choice:(ov.key||null),
+      conf:(typeof ov.confidence==="number")?ov.confidence:null,
+      probs:ov.probabilities||ov.probs||null};
+    if(out.probs.yield_promise==null&&out.overall.choice==null) return {ok:false,err:"响应缺探针数据："+JSON.stringify(data).slice(0,200),ms:ms};
+    return out;
+  }catch(e){
+    var em=String(e);
+    if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
+    return {ok:false,err:em,ms:Date.now()-t0};
+  }finally{ if(timer) clearTimeout(timer); }
+}
+/* ---- 降级：本地关键词基线（模拟 noul 值） ---- */
+function localBaseline(text){
+  function has(re){ return re.test(text); }
+  return {
+    yield_promise: has(/稳赚|保本|保证.{0,4}收益|无风险|零风险|绝不亏|躺着赚/)?0.95:(has(/年化|收益|分红/)?0.35:0.08),
+    risk_disclosure_miss: (has(/风险提示|投资有风险|可能亏损|不代表未来/)?0.1:(has(/推荐|建议配|买|转进|购/)?0.75:0.12)),
+    forbidden_words: has(/不懂|怎么这都不会|烦不烦|别问了|随便你/)?0.8:0.06,
+    misleading: has(/神器|最好|第一|闭着眼睛|肯定涨|稳赢|错过/)?0.85:0.1,
+    improper_collect: has(/验证码|密码/)?(has(/发我|告诉我|告诉我一下/)?0.95:0.4):0.03,
+    unauthorized_inducement: has(/帮您操作|直接转|不用测评|不需要测评|绕过|代操作/)?0.85:0.08,
+    demo:true
+  };
+}
+/* ---- 渲染 ---- */
+function fmt(x){ return (x==null)?"—":(Math.round(x*1000)/1000); }
+function probeRow(p,v,demo){
+  var st,cls;
+  if(v==null){ st="—"; cls="ok"; }
+  else if(v>=TH.tau_high){ st="违规成立"; cls="bad"; }
+  else if(v>=TH.tau_low){ st="存疑"; cls="warn"; }
+  else { st="通过"; cls="ok"; }
+  var barCls=v==null?"":(v>=TH.tau_high?"bad":(v>=TH.tau_low?"warn":""));
+  var h='<div class="probe"><div class="p-head"><span class="p-name">'+p.name+'</span>'
+    +'<span class="p-st '+cls+'">'+st+'</span>'
+    +(demo?'<span class="p-st demo">模拟</span>':"")
+    +'<span class="p-ms">p='+fmt(v)+'</span></div>'
+    +'<div class="bar"><i class="'+barCls+'" style="width:'+Math.round((v||0)*100)+'%"></i></div>';
+  if(v!=null&&v>=TH.tau_low){
+    h+='<div class="p-crit"><b>命中判据：</b>'+esc(p.crit)+(demo?"<br><b>本地基线：</b>关键词命中 "+p.name+"（演示模拟值）":"")+'</div>';
+  }
+  return h+'</div>';
+}
+function ruleScan(text){
+  var hits=[];
+  RULES.forEach(function(r){
+    var m=text.match(r.re);
+    if(m) hits.push({name:r.name,word:m[0]});
+  });
+  return hits;
+}
+function renderReport(text,probs,overall,rhits,demo,ms){
+  var anyBad=probs&&PROBES.some(function(p){ return probs[p.k]!=null&&probs[p.k]>=TH.tau_high; });
+  var anyWarn=probs&&PROBES.some(function(p){ return probs[p.k]!=null&&probs[p.k]>=TH.tau_low&&probs[p.k]<TH.tau_high; });
+  var verdict, vcls, act;
+  if(rhits.length||anyBad){
+    verdict="拦截 · 违规成立"; vcls="block";
+    act=(rhits.length?("规则硬命中："+rhits.map(function(r){ return r.name+"（「"+r.word+"」）"; }).join("；")+"。"):"")
+      +"建议：本笔强制人工复核 + 抽样复听，纳入坐席合规考核记录，涉及违规表述的段落向合规部报备。";
+  }else if(anyWarn){
+    verdict="预警 · 存疑"; vcls="warn";
+    act="存在疑似违规表述但未达强判据，建议：抽样复听确认，纳入质检复核队列（抽检率可下调）。";
+  }else{
+    verdict="通过"; vcls="pass";
+    act="未发现违规项，无需人工复核（仍保留审计留痕）。";
+  }
+  var h='<div class="verdict"><span class="v-badge '+vcls+'">'+verdict+'</span>'
+    +'<span class="v-sub">耗时 '+ms+'ms'+(demo?' · 本地基线模拟':'')+'</span></div>'
+    +'<div class="v-act"><b>建议动作：</b>'+act+'</div>';
+  if(rhits.length){
+    h+=rhits.map(function(r){ return '<div class="rhit">⚠ 规则硬命中 <b>'+esc(r.name)+'</b>：关键词「'+esc(r.word)+'」</div>'; }).join("");
+  }
+  h+='<div style="margin-top:8px">';
+  PROBES.forEach(function(p){ h+=probeRow(p,probs?probs[p.k]:null,demo); });
+  h+='</div>';
+  document.getElementById("rep").innerHTML=h;
+  document.getElementById("demoFlag").className="demo-flag"+(demo?" show":"");
+  /* 右栏整体定级 */
+  var oh='<div class="dec-cat" style="display:flex;align-items:baseline;gap:10px;">'
+    +'<span style="font-size:24px;font-weight:700;">'+(overall?({low:"低",medium:"中",high:"高"}[overall.choice]||overall.choice||"—"):"—")+'风险</span>'
+    +(overall&&overall.conf!=null?'<span style="font-size:13px;color:var(--ink-3)">confidence '+fmt(overall.conf)+'</span>':"")
+    +'</div>';
+  if(overall&&overall.probs){
+    var ks=Object.keys(overall.probs).sort(function(a,b){ return overall.probs[b]-overall.probs[a]; });
+    ks.forEach(function(k){
+      oh+='<div style="display:flex;align-items:center;gap:8px;margin-top:5px;"><span style="font-size:11px;color:var(--ink-2);width:52px;text-align:right;">'+k+'</span>'
+        +'<div class="bar" style="flex:1;margin-top:0;"><i style="width:'+Math.round(overall.probs[k]*100)+'%"></i></div>'
+        +'<span style="font-size:10px;color:var(--ink-4);width:34px;">'+fmt(overall.probs[k])+'</span></div>';
+    });
+  }
+  document.getElementById("overall").innerHTML=oh;
+  return vcls;
+}
+/* ---- 主流程 ---- */
+var stats={n:0,block:0,warn:0,pass:0,msSum:0};
+async function qc(){
+  var text=document.getElementById("q").value.trim();
+  if(!text){ toast("请粘贴坐席对话内容"); return; }
+  document.getElementById("go").disabled=true;
+  document.getElementById("go").textContent="质检中…";
+  document.getElementById("rep").innerHTML='<div id="dec_empty">质检执行中…（规则扫描 + Jev 并行探针）</div>';
+  document.getElementById("demoFlag").className="demo-flag";
+  var t0=Date.now();
+  try{
+    var rhits=ruleScan(text);
+    var jr=await callJev(text);
+    var total=Date.now()-t0, vcls, demo=false, probs=null, overall=null;
+    if(jr.ok){
+      probs=jr.probs; overall=jr.overall;
+    }else{
+      var em=jr.err||"未知错误";
+      if(/401|invalid API key/i.test(em)) em+=" → Jev 密钥失效，改用本地基线";
+      toast("Jev 不可用（"+em.slice(0,60)+"），已降级本地基线演示");
+      probs=localBaseline(text); demo=true;
+    }
+    vcls=renderReport(text,probs,overall,rhits,demo,total);
+    emitLog(text,rhits,probs,overall,demo,vcls,jr.ok?jr.ms:null,total);
+  }catch(e){
+    toast("质检异常："+String(e).slice(0,80));
+    document.getElementById("rep").innerHTML='<div id="dec_empty">执行异常：'+esc(String(e))+'</div>';
+  }finally{
+    document.getElementById("go").disabled=false;
+    document.getElementById("go").textContent="执 行 质 检";
+  }
+}
+function emitLog(text,rhits,probs,overall,demo,vcls,jevMs,total){
+  var j={ts:new Date().toISOString(),req_id:"qc-"+Math.random().toString(36).slice(2,6),
+    app:"compliance_qc",mode:demo?"local_baseline":"jev",state_chars:text.length,
+    rule_hits:rhits.map(function(r){ return r.name; }),
+    probs:probs?(function(){ var o={}; PROBES.forEach(function(p){ o[p.k]=fmt(probs[p.k]); }); return o; })():null,
+    overall:overall?overall.choice:null,confidence:overall?fmt(overall.conf):null,
+    verdict:vcls,jev_ms:jevMs,total_ms:total};
+  document.getElementById("jlog").textContent=JSON.stringify(j);
+  stats.n++;
+  if(vcls==="block") stats.block++; else if(vcls==="warn") stats.warn++; else stats.pass++;
+  stats.msSum+=total;
+  document.getElementById("st_n").textContent=stats.n;
+  document.getElementById("st_block").textContent=stats.block;
+  document.getElementById("st_warn").textContent=stats.warn;
+  document.getElementById("st_pass").textContent=stats.pass;
+  document.getElementById("st_ms").textContent="均耗时："+Math.round(stats.msSum/stats.n)+"ms";
+}
+/* ---- 清空 / 初始化 ---- */
+function clearAll(){
+  stats={n:0,block:0,warn:0,pass:0,msSum:0};
+  document.getElementById("q").value="";
+  document.getElementById("rep").innerHTML='<div id="dec_empty">尚无报告 —— 粘贴对话并执行质检</div>';
+  document.getElementById("overall").innerHTML='<div id="dec_empty">等待质检执行</div>';
+  document.getElementById("jlog").textContent="—";
+  document.getElementById("st_n").textContent="0";
+  document.getElementById("st_block").textContent="0";
+  document.getElementById("st_warn").textContent="0";
+  document.getElementById("st_pass").textContent="0";
+  document.getElementById("st_ms").textContent="均耗时：—";
+  document.getElementById("demoFlag").className="demo-flag";
+  toast("会话已清空");
+}
+setChannel(); initChips();
+probeChannel("连通性自检").then(function(p){
+  if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
+  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用（HTTP "+p.code+"）· 执行质检将自动降级本地基线";
+});
+</script>
+</body>
+</html>

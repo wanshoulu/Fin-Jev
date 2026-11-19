@@ -389,7 +389,7 @@ async function selfTest(){
   var p=await probeChannel("连通性自检");
   var nb=document.getElementById("netbar");
   if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
-  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+" 自检失败</b> · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code); }
+  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检失败 · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code); }
 }
 /* ---- 配置模态 ---- */
 function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
@@ -777,8 +777,8 @@ function clearAll(){
 }
 setChannel(); initInput(); renderPipe();
 probeChannel("连通性自检").then(function(p){
-  if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
-  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+" 不可用（HTTP "+p.code+"）</b> · 可点「连接自检」重试";
+  if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
+  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用（HTTP "+p.code+"）· 可点「连接自检」重试";
 });
 </script>
 </body>

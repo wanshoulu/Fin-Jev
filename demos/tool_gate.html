@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 工具调用风控台 · tool-call risk gate</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  padding-bottom:40px;
+}
+#netbar{
+  font-size:11px; color:var(--ink-3); padding:6px 18px;
+  background:var(--card); border-bottom:0.5px solid var(--line-2);
+  display:flex; gap:14px; align-items:center;
+}
+#netbar b{color:var(--jev); font-weight:600;}
+.topbar{
+  background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+  color:#fff; padding:13px 20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+.brand-mark{
+  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+  background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
+.topbar .btns{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;}
+.btn{
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
+}
+.btn:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.btn:focus-visible{outline:2px solid var(--jev); outline-offset:2px;}
+.btn.primary{background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600;}
+.btn.primary:hover{background:#0c6650; color:#fff; border-color:#0c6650;}
+.btn.primary:active{transform:translateY(1px);}
+.btn.dark{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.25); color:#fff;}
+.btn.dark:hover{background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.45); color:#fff;}
+.btn.dark:focus-visible{outline-color:#fff;}
+.btn.danger{background:var(--red-bg); color:var(--red); border-color:var(--red); font-weight:600;}
+.btn.danger:hover{background:#f6cfcf;}
+.btn:disabled{opacity:.6; cursor:default;}
+.main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:12px; padding:12px 18px;}
+@media (max-width:1020px){ .main{grid-template-columns:1fr;} }
+.colL,.colR{display:flex; flex-direction:column; gap:12px; min-width:0;}
+.card{
+  background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px;
+  padding:15px 17px; box-shadow:0 1px 2px rgba(23,24,28,.04);
+}
+.card h2{font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.card h2::before{content:""; width:7px; height:7px; border-radius:2px; background:var(--jev); flex:0 0 7px;}
+.card h2 .n{font-size:10px; color:var(--ink-4); font-weight:400;}
+.frow{display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap;}
+.frow label{font-size:11px; color:var(--ink-3); flex:0 0 70px;}
+select,input[type=text]{
+  font-family:inherit; font-size:12px; color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:6px 8px;
+  background:var(--card); outline:none; flex:1; min-width:0;
+}
+select:focus,input[type=text]:focus{border-color:var(--jev);}
+#params{
+  width:100%; min-height:72px; resize:vertical; margin-top:8px;
+  font-family:Consolas,Menlo,monospace; font-size:12px; color:var(--ink-1);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:8px 10px;
+  outline:none; transition:border-color .15s;
+}
+#params:focus{border-color:var(--jev);}
+#instr{
+  width:100%; margin-top:8px;
+  font-family:inherit; font-size:12px; color:var(--ink-1);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:7px 10px;
+  outline:none; transition:border-color .15s;
+}
+#instr:focus{border-color:var(--jev);}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.chip{
+  font-size:11px; cursor:pointer; font-family:inherit;
+  background:var(--bg); color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:20px; padding:3px 10px;
+  transition:all .15s; white-space:nowrap;
+}
+.chip:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.chip.sp{border-color:var(--amber-bg); color:var(--amber); background:var(--amber-bg);}
+.chip.sp:hover{border-color:var(--amber);}
+.inrow{display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;}
+.inrow .tip{font-size:11px; color:var(--ink-4); margin-left:auto;}
+#dec_empty{color:var(--ink-4); font-size:12px; padding:14px 0; text-align:center;}
+.verdict{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.v-badge{font-size:15px; font-weight:700; padding:4px 16px; border-radius:8px;}
+.v-badge.pass{background:var(--jev-bg); color:var(--jev); border:1px solid var(--jev);}
+.v-badge.warn{background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber);}
+.v-badge.block{background:var(--red-bg); color:var(--red); border:1px solid var(--red);}
+.v-badge.hold{background:var(--glm-bg); color:var(--glm); border:1px solid var(--glm);}
+.v-sub{font-size:12px; color:var(--ink-3);}
+.gate{border-top:0.5px solid var(--line-2); padding:9px 2px 8px;}
+.gate:first-of-type{border-top:none;}
+.g-head{display:flex; align-items:center; gap:8px;}
+.g-name{font-size:12px; font-weight:600;}
+.g-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px;}
+.g-st.ok{background:var(--jev-bg); color:var(--jev);}
+.g-st.warn{background:var(--amber-bg); color:var(--amber);}
+.g-st.bad{background:var(--red-bg); color:var(--red);}
+.g-st.demo{background:var(--glm-bg); color:var(--glm);}
+.bar{height:7px; background:var(--bg); border-radius:4px; overflow:hidden; margin-top:6px;}
+.bar>i{display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,var(--jev),#19a97b); width:0; transition:width .4s;}
+.bar>i.warn{background:linear-gradient(90deg,var(--amber),#d97706);}
+.bar>i.bad{background:linear-gradient(90deg,var(--red),#ef4444);}
+.g-crit{font-size:11px; color:var(--ink-3); margin-top:6px; background:#f8f9fb; border:0.5px dashed var(--line-2); border-radius:6px; padding:6px 9px; line-height:1.7;}
+.g-crit b{color:var(--red);}
+.dec-path{font-size:11px; color:var(--ink-3); margin-top:10px; border-top:0.5px dashed var(--line-2); padding-top:8px;}
+.dec-path div{margin-top:2px;}
+.dec-path b{color:var(--ink-2);}
+.appr{
+  border:1px solid var(--amber); background:var(--amber-bg); border-radius:10px;
+  padding:10px 12px; margin-top:8px; font-size:12px;
+}
+.appr h4{font-size:12px; color:var(--amber); margin-bottom:5px; display:flex; align-items:center; gap:8px;}
+.appr .meta{color:var(--ink-2); line-height:1.7;}
+.appr .btns{margin-top:8px; display:flex; gap:8px;}
+.exec-log{margin-top:6px; font-size:11px; font-family:Consolas,Menlo,monospace; color:var(--ink-2);
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px; padding:8px 10px;
+  max-height:160px; overflow:auto; white-space:pre-wrap; word-break:break-all;}
+#jlog{
+  font-size:10px; line-height:1.55; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px;
+  padding:8px 10px; color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+  max-height:200px; overflow:auto;
+}
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.tile{background:var(--bg); border-radius:8px; padding:8px 6px; text-align:center;}
+.tile .v{font-size:16px; font-weight:700; color:var(--ink-1);}
+.tile .k{font-size:10px; color:var(--ink-4); margin-top:1px;}
+#mask{position:fixed; inset:0; background:rgba(23,24,28,.4); display:none; align-items:center; justify-content:center; z-index:50;}
+#mask.open{display:flex;}
+.mbox{background:var(--card); border-radius:12px; padding:20px 22px; width:min(420px,92vw); box-shadow:0 8px 30px rgba(0,0,0,.15);}
+.mbox h3{font-size:15px; margin-bottom:12px;}
+.mbox label{display:block; font-size:12px; color:var(--ink-2); margin:10px 0 4px;}
+.mbox input{width:100%; font-family:inherit; font-size:12px; border:0.5px solid var(--line-1); border-radius:8px; padding:7px 10px; outline:none;}
+.mbox input:focus{border-color:var(--jev);}
+.mbox .note{font-size:11px; color:var(--ink-4); margin-top:8px; line-height:1.6;}
+.mrow{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+#toast{
+  position:fixed; left:50%; bottom:34px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink-1); color:#fff; font-size:12px;
+  padding:8px 16px; border-radius:8px; opacity:0; pointer-events:none;
+  transition:all .25s; z-index:60; max-width:80vw;
+}
+#toast.show{opacity:.92; transform:translateX(-50%) translateY(0);}
+.demo-flag{display:none; margin-top:10px; font-size:11px; color:var(--glm); background:var(--glm-bg); border-radius:6px; padding:5px 10px;}
+.demo-flag.show{display:inline-block;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">Agent 工具调用风控台<span class="sub">tool-call risk gate · 4×noul 并行 · 高危 HITL 人工审批 · 疑似注入直接拦截</span></span>
+  </div>
+  <div class="btns">
+    <button class="btn dark" onclick="selfTest()">连接自检</button>
+    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="clearAll()">清空会话</button>
+  </div>
+</header>
+<div id="netbar">通道检测中…</div>
+
+<div class="main">
+  <div class="colL">
+    <div class="card">
+      <h2>待检工具调用 <span class="n">Agent 执行前，先过风控闸门</span></h2>
+      <div class="frow"><label>工具</label><select id="tool"></select></div>
+      <textarea id="params" placeholder='调用参数（JSON 片段）…&#10;例如：{"to_account":"622202000111","amount":50000,"currency":"CNY"}'></textarea>
+      <input id="instr" type="text" placeholder="用户指令原文（用于 user_authorized 一致性判定）…">
+      <div class="chips" id="chips"></div>
+      <div class="inrow">
+        <button class="btn primary" id="go" onclick="gate()">风 控 闸 门</button>
+        <span class="tip">user_authorized 正向题：p≥0.8 指令一致 · p&lt;0.55 疑似注入</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>闸门裁决 <span class="n">自动执行 / HITL 审批 / 升级确认 / 拦截</span></h2>
+      <div id="rep"><div id="dec_empty">尚无裁决 —— 填写调用并执行风控闸门</div></div>
+      <span class="demo-flag" id="demoFlag">⚠ 本地基线·演示：Jev 不可用，以下风险概率为本地规则模拟值，仅供界面演示</span>
+    </div>
+  </div>
+
+  <div class="colR">
+    <div class="card">
+      <h2>HITL 审批队列 <span class="n">高危操作人工批准后才会模拟执行</span></h2>
+      <div id="queue"><div id="dec_empty">暂无待审批项</div></div>
+    </div>
+    <div class="card">
+      <h2>执行日志 <span class="n">自动执行 / 已批准 / 已拒绝 / 已拦截 / 升级确认</span></h2>
+      <div class="exec-log" id="elog">—</div>
+    </div>
+    <div class="card">
+      <h2>观测 JSONL <span class="n">每次闸门检查一条 · 审计留痕</span></h2>
+      <div id="jlog">—</div>
+    </div>
+    <div class="card">
+      <h2>会话统计</h2>
+      <div class="tiles">
+        <div class="tile"><div class="v" id="st_n">0</div><div class="k">调用数</div></div>
+        <div class="tile"><div class="v" id="st_auto">0</div><div class="k">自动执行</div></div>
+        <div class="tile"><div class="v" id="st_hold">0</div><div class="k">待审批</div></div>
+        <div class="tile"><div class="v" id="st_deny">0</div><div class="k">拒绝/拦截</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="mask"><div class="mbox">
+  <h3>⚙ Key 设置</h3>
+  <label>Jev API Key（博查 System One）</label>
+  <input id="cfg_jev" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入">
+  <div class="note">同源访问（8787）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需在此填入官方 Key（仅存于浏览器 localStorage）。</div>
+  <div class="mrow">
+    <button class="btn" onclick="closeCfg()">取消</button>
+    <button class="btn" onclick="clearKey()">清除</button>
+    <button class="btn primary" onclick="saveCfg()">保存</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+/* ================= 工具定义与 4×noul 闸门 ================= */
+var TOOLS={
+ transfer_funds:{name:"transfer_funds 转账",act:"转账",params:'{"to_account":"622202000111","amount":50000,"currency":"CNY"}',instr:"帮我把这 5 万块转到这个理财账户里"},
+ query_balance:{name:"query_balance 查余额",act:"查询工资到账情况，即查询账户余额",params:'{"account_last4":"8888"}',instr:"帮我查下工资到账没"},
+ update_phone:{name:"update_phone 改预留手机号",act:"修改预留手机号",params:'{"new_phone":"138****8000"}',instr:"把我的预留手机号改成新的这个号"},
+ export_customer_data:{name:"export_customer_data 导出客户数据",act:"导出客户数据",params:'{"segment":"高净值客户","fields":"姓名,手机号,资产"}',instr:"帮我查下工资到账没"},
+ send_sms:{name:"send_sms 外呼短信",act:"发送短信",params:'{"template":"activity_202611","audience":"我名下客户"}',instr:"给客户群发一下最近的理财活动短信"},
+ verify_identity:{name:"verify_identity 身份核验",act:"进行身份核验",params:'{"method":"otp_sms"}',instr:"按流程做一下身份核验"}
+};
+var GATES=[
+ {k:"fund_related",name:"涉资金变动",dir:1,
+  crit:"本次调用导致资金转出、扣款、支付、下单等资金变动，或有金额字段",
+  critOk:"仅查询或非资金类操作"},
+ {k:"irreversible",name:"不可逆 / 影响账户安全",dir:1,
+  crit:"操作不可撤销（转账、改绑手机号、销户）或直接削弱账户安全控制",
+  critOk:"可重复执行的只读或可撤销操作"},
+ {k:"sensitive_data",name:"接触敏感客户数据",dir:1,
+  crit:"批量导出或外传客户身份、联系方式、资产等敏感字段，或绕过最小必要原则",
+  critOk:"不接触敏感字段，或仅最小必要查询"},
+ {k:"user_authorized",name:"用户指令一致性",dir:1,
+  crit:"指令明确要求做这件事：工具与参数均与用户指令相符（此题判据随所选工具动态生成）",
+  critOk:"指令要求的是其他事情，与本次调用不符——疑似提示词注入或越权调用"}
+];
+var TH={tau_high:0.8, tau_low:0.55, state_max_chars:3000};
+var _uaCrit=""; // 最近一次 user_authorized 动态判据（渲染展示用）
+/* ================= 通道与配置 ================= */
+var JEV_URL="https://jev.bocha.cn/v1/systemone", PROXY_URL="/v1/systemone";
+var KEY_STORE="tool_gate_keys_v1";
+var CFG={jevKey:"",jevModel:"bocha-jev-v1"};
+var chanBase="", chanName="—";
+try{ var raw=localStorage.getItem(KEY_STORE); if(raw){ CFG=JSON.parse(raw)||CFG; } }catch(e){}
+/* 统一模型配置中心（model_settings.html）写入 finjev_cfg_v1，优先级高于本页独立配置 */
+try{ var _mc=JSON.parse(localStorage.getItem("finjev_cfg_v1")||"null");
+  if(_mc){ if(_mc.jevKey) CFG.jevKey=_mc.jevKey; if(_mc.jevModel) CFG.jevModel=_mc.jevModel; } }catch(e){}
+function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._h); toast._h=setTimeout(function(){ el.classList.remove("show"); },2600); }
+function setChannel(){
+  if(location.protocol==="http:"||location.protocol==="https:"){ chanBase=""; chanName="同源代理 /v1/systemone（BUILTIN_JEV 注入）"; }
+  else { chanBase=JEV_URL; chanName="file:// 直连官方 API"; }
+  document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 4×noul 并行";
+}
+function cfg(){ return CFG.jevKey||"BUILTIN_JEV"; }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+async function probeChannel(text){
+  var t0=Date.now();
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify({model:(CFG.jevModel||"bocha-jev-v1"),state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
+    });
+    var txt=await r.text();
+    var ok=r.status>=200&&r.status<300;
+    return {ok:ok,code:r.status,ms:Date.now()-t0,raw:txt.slice(0,600)};
+  }catch(e){ return {ok:false,code:0,ms:Date.now()-t0,raw:String(e)}; }
+}
+async function selfTest(){
+  toast("自检中…");
+  var p=await probeChannel("连通性自检");
+  var nb=document.getElementById("netbar");
+  if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
+  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用 · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code+"（将走本地基线）"); }
+}
+function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
+function closeCfg(){ document.getElementById("mask").classList.remove("open"); }
+function saveCfg(){
+  CFG.jevKey=document.getElementById("cfg_jev").value.trim();
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  closeCfg(); toast("Key 已保存"); setChannel();
+}
+function clearKey(){
+  document.getElementById("cfg_jev").value=""; CFG.jevKey="";
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  toast("已清除，走 BUILTIN_JEV 注入");
+}
+/* ---- chips / 工具下拉 ---- */
+var CHIPS=[
+ {cls:"",label:"低风险：查余额（自动执行）",tool:"query_balance"},
+ {cls:"sp",label:"高风险：转账 5 万（进审批）",tool:"transfer_funds"},
+ {cls:"sp",label:"疑似注入：指令说查余额，实际导出客户数据",tool:"export_customer_data",instrOverride:"帮我查下工资到账没"}
+];
+function initChips(){
+  var h="";
+  CHIPS.forEach(function(c,i){
+    h+='<button class="chip '+c.cls+'" onclick="fillChip('+i+')">'+c.label+'</button>';
+  });
+  document.getElementById("chips").innerHTML=h;
+  var o="";
+  Object.keys(TOOLS).forEach(function(k){ o+='<option value="'+k+'">'+TOOLS[k].name+'</option>'; });
+  document.getElementById("tool").innerHTML=o;
+}
+function fillChip(i){
+  var c=CHIPS[i], t=TOOLS[c.tool];
+  document.getElementById("tool").value=c.tool;
+  document.getElementById("params").value=t.params;
+  document.getElementById("instr").value=c.instrOverride||t.instr;
+}
+/* ---- 请求构造：questions 字典（实测 schema）----
+   Jev 惯用法（实测校准，判据措辞极敏感，模型输出确定性：同载荷同分）：
+   · state.message 只放用户指令原话；工具英文名+参数嵌入 instructions 且内嵌指令原文；
+   · user_authorized 判据必须具体到工具动作（true="是，指令要求{act}"），
+     抽象的「一致/不一致」连语义直连的转账 case 都会掉到 0.6 以下；
+     act 描述承担语义搭桥（如 查工资到账→查余额）。 */
+function buildQuestions(tool,par,instr){
+  var qs={};
+  GATES.forEach(function(g){
+    if(g.k==="user_authorized"){
+      qs[g.k]={type:"noul",
+        instructions:"判断用户指令「"+instr.slice(0,1000)+"」是否要求执行 "+tool+"（参数 "+par.slice(0,300)+"）这个工具调用",
+        criteria:{true:"是，指令要求"+TOOLS[tool].act, false:"否，指令要求的是其他操作"}};
+    }else{
+      qs[g.k]={type:"noul",
+        instructions:"判断该 Agent 工具调用是否触发此风险维度",
+        criteria:{true:g.crit, false:g.critOk}};
+    }
+  });
+  return qs;
+}
+/* ---- Jev 调用：20s 超时 + 状态码先行 ---- */
+async function callJev(tool,par,instr){
+  var t0=Date.now();
+  _uaCrit="是，指令要求"+TOOLS[tool].act;
+  var body={model:(CFG.jevModel||"bocha-jev-v1"),state:{message:instr.slice(0,TH.state_max_chars)},questions:buildQuestions(tool,par,instr)};
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null;
+  var timer=ac?setTimeout(function(){ try{ ac.abort(); }catch(e){} },20000):null;
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify(body),
+      signal:ac?ac.signal:undefined
+    });
+    if(!(r.status>=200&&r.status<300)){
+      var etxt="";
+      try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+    }
+    var data=await r.json();
+    var ms=Date.now()-t0, a=data.answers||{}, out={ok:true,ms:ms,probs:{}};
+    GATES.forEach(function(g){
+      var v=a[g.k];
+      out.probs[g.k]=(v&&typeof v.noul==="number")?v.noul:((v&&typeof v.p==="number")?v.p:null);
+    });
+    if(Object.keys(out.probs).every(function(k){ return out.probs[k]==null; }))
+      return {ok:false,err:"响应缺闸门数据："+JSON.stringify(data).slice(0,200),ms:ms};
+    return out;
+  }catch(e){
+    var em=String(e);
+    if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
+    return {ok:false,err:em,ms:Date.now()-t0};
+  }finally{ if(timer) clearTimeout(timer); }
+}
+/* ---- 降级：本地规则基线（模拟 noul 值） ---- */
+function localBaseline(tool,par,instr){
+  var o={demo:true};
+  o.fund_related=(tool==="transfer_funds")?0.95:((/"amount"|金额/.test(par)&&tool!=="query_balance")?0.7:0.05);
+  o.irreversible=(tool==="transfer_funds"||tool==="update_phone")?0.9:0.05;
+  o.sensitive_data=(tool==="export_customer_data"||/"姓名|手机号|资产|身份证/.test(par))?0.92:((tool==="send_sms")?0.3:0.06);
+  var align=(instr.replace(/\s/g,"").length>0);
+  o.user_authorized=align?0.93:0.3;
+  if(tool==="export_customer_data"&&/查(余额|工资|到账)|余额/.test(instr)) o.user_authorized=0.12;
+  if(tool==="query_balance"&&/查(余额|工资|到账)|余额/.test(instr)) o.user_authorized=0.95;
+  if(tool==="transfer_funds"&&/转/.test(instr)) o.user_authorized=0.94;
+  return o;
+}
+/* ---- 渲染 ---- */
+function fmt(x){ return (x==null)?"—":(Math.round(x*1000)/1000); }
+function gateRow(g,v,demo){
+  var st,cls,ua=g.k==="user_authorized";
+  if(v==null){ st="—"; cls="ok"; }
+  else if(ua){
+    if(v>=TH.tau_high){ st="一致"; cls="ok"; }
+    else if(v>=TH.tau_low){ st="一致性存疑"; cls="warn"; }
+    else { st="疑似注入"; cls="bad"; }
+  }else{
+    if(v>=TH.tau_high){ st="高危"; cls="bad"; }
+    else if(v>=TH.tau_low){ st="存疑"; cls="warn"; }
+    else { st="通过"; cls="ok"; }
+  }
+  var barCls=v==null?"":((ua? v<TH.tau_low : v>=TH.tau_high)?"bad":((ua? v<TH.tau_high : v>=TH.tau_low)?"warn":""));
+  var h='<div class="gate"><div class="g-head"><span class="g-name">'+g.name+'</span>'
+    +'<span class="g-st '+cls+'">'+st+'</span>'
+    +(demo?'<span class="g-st demo">模拟</span>':"")
+    +'<span style="font-size:10px;color:var(--ink-4);margin-left:auto;">p='+fmt(v)+'</span></div>'
+    +'<div class="bar"><i class="'+barCls+'" style="width:'+Math.round((v||0)*100)+'%"></i></div>';
+  if(v!=null&&(ua? v<TH.tau_high : v>=TH.tau_low)){
+    h+='<div class="g-crit"><b>触发判据：</b>'+esc((ua&&_uaCrit)?_uaCrit:g.crit)+'</div>';
+  }
+  return h+'</div>';
+}
+function decision(probs){
+  var au=probs.user_authorized;
+  if(au!=null&&au<TH.tau_low){
+    return {cls:"block",label:"拦截 · 疑似注入",why:["user_authorized="+fmt(au)+" < "+TH.tau_low+"：用户指令与本次调用不一致，疑似提示词注入/越权调用 → 一律拦截并审计"]};
+  }
+  var highs=[];
+  ["fund_related","irreversible","sensitive_data"].forEach(function(k){
+    if(probs[k]!=null&&probs[k]>=TH.tau_low) highs.push(k);
+  });
+  if(highs.length){
+    return {cls:"hold",label:"高危 · 进 HITL 审批",why:["高风险组命中："+highs.join(" / ")+"（≥"+TH.tau_low+"）→ 挂起进入人工审批队列，批准前不执行"],highs:highs};
+  }
+  if(au!=null&&au>=TH.tau_high){
+    return {cls:"pass",label:"自动执行",why:["无高风险命中 + user_authorized="+fmt(au)+" ≥ "+TH.tau_high+" → 低风险一致调用，自动执行"]};
+  }
+  return {cls:"warn",label:"升级确认",why:["信号模糊（user_authorized="+fmt(au)+"）→ 建议向用户二次确认后再执行"]};
+}
+function render(tool,par,instr,probs,demo,ms){
+  var d=decision(probs);
+  var h='<div class="verdict"><span class="v-badge '+d.cls+'">'+d.label+'</span>'
+    +'<span class="v-sub">'+esc(TOOLS[tool].name)+' · 耗时 '+ms+'ms'+(demo?' · 本地基线模拟':'')+'</span></div>';
+  h+='<div class="dec-path">'+d.why.map(function(s){ return "<div><b>▸</b> "+esc(s)+"</div>"; }).join("")+'</div>';
+  h+='<div style="margin-top:8px">';
+  GATES.forEach(function(g){ h+=gateRow(g,probs[g.k],demo); });
+  h+='</div>';
+  document.getElementById("rep").innerHTML=h;
+  document.getElementById("demoFlag").className="demo-flag"+(demo?" show":"");
+  return d;
+}
+/* ---- HITL 审批队列 ---- */
+var QUEUE=[];
+function pushQueue(item){
+  item.id="q-"+Math.random().toString(36).slice(2,7);
+  QUEUE.push(item);
+  renderQueue();
+  addExec("⏸ 待审批  "+item.tool+"（"+item.id+"）已挂起，等待人工批准");
+}
+function renderQueue(){
+  var el=document.getElementById("queue");
+  if(!QUEUE.length){ el.innerHTML='<div id="dec_empty">暂无待审批项</div>'; return; }
+  var h="";
+  QUEUE.forEach(function(q){
+    h+='<div class="appr" id="ap_'+q.id+'"><h4>⏸ '+esc(q.tool)+' <span class="g-st warn">'+q.id+'</span></h4>'
+      +'<div class="meta"><b>参数：</b>'+esc(q.par)+'<br><b>指令：</b>'+esc(q.instr)+'<br><b>触发：</b>'+esc(q.trig)+'</div>'
+      +'<div class="btns"><button class="btn primary" onclick="approve(\''+q.id+'\')">批准执行</button>'
+      +'<button class="btn danger" onclick="reject(\''+q.id+'\')">拒绝</button></div></div>';
+  });
+  el.innerHTML=h;
+}
+function findQ(id){ for(var i=0;i<QUEUE.length;i++){ if(QUEUE[i].id===id) return i; } return -1; }
+function approve(id){
+  var i=findQ(id); if(i<0) return;
+  var q=QUEUE.splice(i,1)[0];
+  renderQueue();
+  addExec("✅ 已批准   "+q.tool+"（"+id+"）→ 模拟执行成功 · 返回 {status:'ok', simulate:true}");
+  toast("已批准并模拟执行 "+q.tool);
+  bump("st_auto");
+}
+function reject(id){
+  var i=findQ(id); if(i<0) return;
+  var q=QUEUE.splice(i,1)[0];
+  renderQueue();
+  addExec("❌ 已拒绝   "+q.tool+"（"+id+"）人工拒绝，调用终止并留痕");
+  toast("已拒绝 "+q.tool);
+  bump("st_deny");
+}
+function bump(id){ var el=document.getElementById(id); el.textContent=(+el.textContent||0)+1; }
+/* ---- 执行日志 ---- */
+var EXEC=[];
+function addExec(s){
+  var ts=new Date().toLocaleTimeString("zh-CN",{hour12:false});
+  EXEC.unshift(ts+"  "+s);
+  if(EXEC.length>40) EXEC.pop();
+  document.getElementById("elog").textContent=EXEC.length?EXEC.join("\n"):"—";
+}
+/* ---- 主流程 ---- */
+var stats={n:0};
+async function gate(){
+  var tool=document.getElementById("tool").value;
+  var par=document.getElementById("params").value.trim()||"{}";
+  var instr=document.getElementById("instr").value.trim();
+  if(!instr){ toast("请填写用户指令原文（用于一致性判定）"); return; }
+  document.getElementById("go").disabled=true;
+  document.getElementById("go").textContent="闸门检查中…";
+  document.getElementById("rep").innerHTML='<div id="dec_empty">闸门检查中…（4×noul 并行）</div>';
+  document.getElementById("demoFlag").className="demo-flag";
+  var t0=Date.now();
+  try{
+    var jr=await callJev(tool,par,instr);
+    var total=Date.now()-t0, demo=false, probs=null;
+    if(jr.ok){ probs=jr.probs; }
+    else{
+      var em=jr.err||"未知错误";
+      if(/401|invalid API key/i.test(em)) em+=" → Jev 密钥失效，改用本地基线";
+      toast("Jev 不可用（"+em.slice(0,60)+"），已降级本地基线演示");
+      probs=localBaseline(tool,par,instr); demo=true;
+    }
+    var d=render(tool,par,instr,probs,demo,total);
+    stats.n++;
+    document.getElementById("st_n").textContent=stats.n;
+    emitLog(tool,par,instr,probs,d,demo,jr.ok?jr.ms:null,total);
+    if(d.cls==="hold"){
+      pushQueue({tool:TOOLS[tool].name,par:par,instr:instr,trig:d.why[0]});
+      bump("st_hold");
+    }else if(d.cls==="pass"){
+      addExec("▶ 自动执行 "+TOOLS[tool].name+" → 模拟执行成功 · {status:'ok'}");
+      bump("st_auto");
+    }else if(d.cls==="block"){
+      addExec("⛔ 已拦截   "+TOOLS[tool].name+" · 疑似注入/不一致，终止并审计");
+      bump("st_deny");
+    }else if(d.cls==="warn"){
+      addExec("⚠ 升级确认 "+TOOLS[tool].name+" · 建议向用户二次确认");
+    }
+  }catch(e){
+    toast("闸门异常："+String(e).slice(0,80));
+    document.getElementById("rep").innerHTML='<div id="dec_empty">执行异常：'+esc(String(e))+'</div>';
+  }finally{
+    document.getElementById("go").disabled=false;
+    document.getElementById("go").textContent="风 控 闸 门";
+  }
+}
+function emitLog(tool,par,instr,probs,d,demo,jevMs,total){
+  var j={ts:new Date().toISOString(),req_id:"tg-"+Math.random().toString(36).slice(2,6),
+    app:"tool_gate",mode:demo?"local_baseline":"jev",tool:tool,
+    params:par.slice(0,200),instruction:instr.slice(0,120),
+    probs:(function(){ var o={}; GATES.forEach(function(g){ o[g.k]=fmt(probs[g.k]); }); return o; })(),
+    decision:d.label,jev_ms:jevMs,total_ms:total};
+  document.getElementById("jlog").textContent=JSON.stringify(j);
+}
+/* ---- 清空 / 初始化 ---- */
+function clearAll(){
+  stats={n:0}; QUEUE=[]; EXEC=[];
+  renderQueue();
+  document.getElementById("rep").innerHTML='<div id="dec_empty">尚无裁决 —— 填写调用并执行风控闸门</div>';
+  document.getElementById("elog").textContent="—";
+  document.getElementById("jlog").textContent="—";
+  ["st_n","st_auto","st_hold","st_deny"].forEach(function(id){ document.getElementById(id).textContent="0"; });
+  document.getElementById("demoFlag").className="demo-flag";
+  toast("会话已清空（含审批队列）");
+}
+setChannel(); initChips(); renderQueue();
+probeChannel("连通性自检").then(function(p){
+  if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
+  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用（HTTP "+p.code+"）· 执行闸门将自动降级本地基线";
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GenAI 输出护栏台 · 出街前合规闸门</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  padding-bottom:40px;
+}
+#netbar{
+  font-size:11px; color:var(--ink-3); padding:6px 18px;
+  background:var(--card); border-bottom:0.5px solid var(--line-2);
+  display:flex; gap:14px; align-items:center;
+}
+#netbar b{color:var(--jev); font-weight:600;}
+.topbar{
+  background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+  color:#fff; padding:13px 20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+.brand-mark{
+  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+  background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
+.topbar .btns{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;}
+.btn{
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
+}
+.btn:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.btn:focus-visible{outline:2px solid var(--jev); outline-offset:2px;}
+.btn.primary{background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600;}
+.btn.primary:hover{background:#0c6650; color:#fff; border-color:#0c6650;}
+.btn.primary:active{transform:translateY(1px);}
+.btn.dark{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.25); color:#fff;}
+.btn.dark:hover{background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.45); color:#fff;}
+.btn.dark:focus-visible{outline-color:#fff;}
+.btn:disabled{opacity:.6; cursor:default;}
+.main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:12px; padding:12px 18px;}
+@media (max-width:1020px){ .main{grid-template-columns:1fr;} }
+.colL,.colR{display:flex; flex-direction:column; gap:12px; min-width:0;}
+.card{
+  background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px;
+  padding:15px 17px; box-shadow:0 1px 2px rgba(23,24,28,.04);
+}
+.card h2{font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.card h2::before{content:""; width:7px; height:7px; border-radius:2px; background:var(--jev); flex:0 0 7px;}
+.card h2 .n{font-size:10px; color:var(--ink-4); font-weight:400;}
+#q{
+  width:100%; min-height:120px; resize:vertical;
+  font-family:inherit; font-size:13px; color:var(--ink-1);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:9px 11px;
+  outline:none; transition:border-color .15s;
+}
+#q:focus{border-color:var(--jev);}
+#ovr{
+  font-family:inherit; font-size:12px; color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:8px; padding:6px 8px;
+  background:var(--card); outline:none;
+}
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
+.chip{
+  font-size:11px; cursor:pointer; font-family:inherit;
+  background:var(--bg); color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:20px; padding:3px 10px;
+  transition:all .15s; white-space:nowrap;
+}
+.chip:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.chip.sp{border-color:var(--amber-bg); color:var(--amber); background:var(--amber-bg);}
+.chip.sp:hover{border-color:var(--amber);}
+.inrow{display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;}
+.inrow .tip{font-size:11px; color:var(--ink-4); margin-left:auto;}
+#dec_empty{color:var(--ink-4); font-size:12px; padding:14px 0; text-align:center;}
+.verdict{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.v-badge{font-size:16px; font-weight:700; padding:5px 18px; border-radius:8px;}
+.v-badge.pass{background:var(--jev-bg); color:var(--jev); border:1px solid var(--jev);}
+.v-badge.warn{background:var(--amber-bg); color:var(--amber); border:1px solid var(--amber);}
+.v-badge.block{background:var(--red-bg); color:var(--red); border:1px solid var(--red);}
+.v-sub{font-size:12px; color:var(--ink-3);}
+.gate{border-top:0.5px solid var(--line-2); padding:9px 2px 8px;}
+.gate:first-of-type{border-top:none;}
+.g-head{display:flex; align-items:center; gap:8px;}
+.g-name{font-size:12px; font-weight:600;}
+.g-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px;}
+.g-st.ok{background:var(--jev-bg); color:var(--jev);}
+.g-st.warn{background:var(--amber-bg); color:var(--amber);}
+.g-st.bad{background:var(--red-bg); color:var(--red);}
+.g-st.demo{background:var(--glm-bg); color:var(--glm);}
+.bar{height:7px; background:var(--bg); border-radius:4px; overflow:hidden; margin-top:6px;}
+.bar>i{display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,var(--jev),#19a97b); width:0; transition:width .4s;}
+.bar>i.warn{background:linear-gradient(90deg,var(--amber),#d97706);}
+.bar>i.bad{background:linear-gradient(90deg,var(--red),#ef4444);}
+.g-crit{font-size:11px; color:var(--ink-3); margin-top:6px; background:#f8f9fb; border:0.5px dashed var(--line-2); border-radius:6px; padding:6px 9px; line-height:1.7;}
+.g-crit b{color:var(--red);}
+.block-box{margin-top:10px; font-size:12px; color:var(--red); background:var(--red-bg); border-radius:8px; padding:10px 12px; line-height:1.8;}
+.block-box b{font-weight:700;}
+.block-box .fix{color:var(--ink-2); background:rgba(255,255,255,.7); border-radius:6px; padding:6px 9px; margin-top:6px; display:block; font-size:11px;}
+.rewrite{margin-top:10px; font-size:12px; color:var(--ink-2); background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:8px; padding:10px 12px; line-height:1.8; display:none; white-space:pre-wrap;}
+.rewrite.show{display:block;}
+.rewrite h4{font-size:12px; color:var(--jev); margin-bottom:6px;}
+#jlog{
+  font-size:10px; line-height:1.55; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px;
+  padding:8px 10px; color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+  max-height:200px; overflow:auto;
+}
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.tile{background:var(--bg); border-radius:8px; padding:8px 6px; text-align:center;}
+.tile .v{font-size:16px; font-weight:700; color:var(--ink-1);}
+.tile .k{font-size:10px; color:var(--ink-4); margin-top:1px;}
+#mask{position:fixed; inset:0; background:rgba(23,24,28,.4); display:none; align-items:center; justify-content:center; z-index:50;}
+#mask.open{display:flex;}
+.mbox{background:var(--card); border-radius:12px; padding:20px 22px; width:min(420px,92vw); box-shadow:0 8px 30px rgba(0,0,0,.15);}
+.mbox h3{font-size:15px; margin-bottom:12px;}
+.mbox label{display:block; font-size:12px; color:var(--ink-2); margin:10px 0 4px;}
+.mbox input{width:100%; font-family:inherit; font-size:12px; border:0.5px solid var(--line-1); border-radius:8px; padding:7px 10px; outline:none;}
+.mbox input:focus{border-color:var(--jev);}
+.mbox .note{font-size:11px; color:var(--ink-4); margin-top:8px; line-height:1.6;}
+.mrow{display:flex; gap:8px; justify-content:flex-end; margin-top:16px;}
+#toast{
+  position:fixed; left:50%; bottom:34px; transform:translateX(-50%) translateY(20px);
+  background:var(--ink-1); color:#fff; font-size:12px;
+  padding:8px 16px; border-radius:8px; opacity:0; pointer-events:none;
+  transition:all .25s; z-index:60; max-width:80vw;
+}
+#toast.show{opacity:.92; transform:translateX(-50%) translateY(0);}
+.demo-flag{display:none; margin-top:10px; font-size:11px; color:var(--glm); background:var(--glm-bg); border-radius:6px; padding:5px 10px;}
+.demo-flag.show{display:inline-block;}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">GenAI 输出护栏台<span class="sub">5×noul 出街前闸门 · 放行 / 人工审核 / 拦截 · 金监总局高风险应用合规要求</span></span>
+  </div>
+  <div class="btns">
+    <button class="btn dark" onclick="selfTest()">连接自检</button>
+    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="clearAll()">清空会话</button>
+  </div>
+</header>
+<div id="netbar">通道检测中…</div>
+
+<div class="main">
+  <div class="colL">
+    <div class="card">
+      <h2>机器人拟回复 <span class="n">出街前的最后一道合规闸门</span></h2>
+      <div class="inrow" style="margin-top:0;">
+        <span style="font-size:11px;color:var(--ink-3);">业务场景</span>
+        <select id="ovr">
+          <option value="理财咨询">理财咨询</option>
+          <option value="账户服务">账户服务</option>
+          <option value="贷款">贷款</option>
+          <option value="营销活动">营销活动</option>
+        </select>
+      </div>
+      <textarea id="q" placeholder="粘贴机器人拟回复的文本，护栏将判其是否可出街…&#10;例如：这款理财历史业绩亮眼，值得您放心配置，稳赢！"></textarea>
+      <div class="chips" id="chips"></div>
+      <div class="inrow">
+        <button class="btn primary" id="go" onclick="check()">护 栏 检 查</button>
+        <span class="tip">5×noul 并行 · 全过放行 · 任一强命中拦截</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>闸门裁决 <span class="n">放行绿 / 人工审核黄 / 拦截红 + 整改建议</span></h2>
+      <div id="rep"><div id="dec_empty">尚无裁决 —— 输入拟回复并执行护栏检查</div></div>
+      <span class="demo-flag" id="demoFlag">⚠ 本地基线·演示：Jev 不可用，以下触发概率为本地关键词模拟值，仅供界面演示</span>
+    </div>
+  </div>
+
+  <div class="colR">
+    <div class="card">
+      <h2>闸门信号 <span class="n">任一 noul ≥0.8 拦截 · ≥0.55 人工审核</span></h2>
+      <div id="sig"><div id="dec_empty">等待检查执行</div></div>
+    </div>
+    <div class="card">
+      <h2>观测 JSONL <span class="n">每次检查一条 · 审计留痕</span></h2>
+      <div id="jlog">—</div>
+    </div>
+    <div class="card">
+      <h2>会话统计</h2>
+      <div class="tiles">
+        <div class="tile"><div class="v" id="st_n">0</div><div class="k">检查次数</div></div>
+        <div class="tile"><div class="v" id="st_block">0</div><div class="k">拦截</div></div>
+        <div class="tile"><div class="v" id="st_warn">0</div><div class="k">人工审核</div></div>
+        <div class="tile"><div class="v" id="st_pass">0</div><div class="k">放行</div></div>
+      </div>
+      <div id="st_ms" style="font-size:11px; color:var(--ink-3); margin-top:8px;">均耗时：—</div>
+    </div>
+  </div>
+</div>
+
+<div id="mask"><div class="mbox">
+  <h3>⚙ Key 设置</h3>
+  <label>Jev API Key（博查 System One）</label>
+  <input id="cfg_jev" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入">
+  <div class="note">同源访问（8787）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需在此填入官方 Key（仅存于浏览器 localStorage）。</div>
+  <div class="mrow">
+    <button class="btn" onclick="closeCfg()">取消</button>
+    <button class="btn" onclick="clearKey()">清除</button>
+    <button class="btn primary" onclick="saveCfg()">保存</button>
+  </div>
+</div></div>
+<div id="toast"></div>
+
+<script>
+/* ================= 5×noul 闸门定义（true=触发拦截的判据，false=安全表现） ================= */
+var GATES=[
+ {k:"investment_advice",name:"构成具体投资建议",
+  crit:"点名具体产品并给出配置比例、买卖时点、加仓减仓等可执行指令，或使用「建议您买入/卖出/重仓」等直接指令性表述",
+  critOk:"仅作一般性产品说明或风险等级介绍，不含具体操作指令"},
+ {k:"yield_promise",name:"承诺或暗示确定性收益",
+  crit:"出现「稳赚」「保本」「保证收益」「稳赢」「零风险」「绝对能赚」等确定性表述，或用历史业绩暗示未来确定性回报",
+  critOk:"收益表述均附带不确定性说明与风险提示"},
+ {k:"sensitive_leak",name:"泄露客户敏感信息",
+  crit:"回复中出现客户身份证号、完整银行卡号、账户余额、交易明细、手机号等敏感字段，或引导机器人外泄内部客户名单",
+  critOk:"未出现任何客户敏感字段，涉及查询均引导客户本人通过官方渠道操作"},
+ {k:"compliance_wording",name:"违反营销合规绝对化用语",
+  crit:"出现《广告法》禁用的绝对化用语：最优/第一/唯一/顶级/全网最低/稳赢，或对未发生事项作保证性承诺",
+  critOk:"营销表述客观中性，无绝对化用语与保证性承诺"},
+ {k:"needs_disclosure",name:"缺少必要风险提示",
+  crit:"内容涉及收益、产品推荐或营销引导，但全文无「投资有风险」「可能亏损」「不构成投资建议」等必要提示",
+  critOk:"涉及收益或推荐的内容均附带充分风险提示"}
+];
+var TH={tau_high:0.8, tau_low:0.55, state_max_chars:4000};
+/* 本地基线的兜底关键词（降级模式） */
+var KW={
+ investment_advice:/建议(您)?(买|卖|加仓|减仓|重仓|清仓|配置)|买入点|卖出点|重仓|清仓|加仓|仓位.{0,4}建议/,
+ yield_promise:/稳赚|保本|保证.{0,4}收益|稳赢|零风险|无风险|绝对能|绝不亏|躺着赚/,
+ sensitive_leak:/\b\d{17}[\dXx]\b|\b\d{16,19}\b|余额.{0,6}是|余额.{0,6}为|身份证号.{0,4}\d|名单.{0,6}(发|导出)/,
+ compliance_wording:/全网最(优|低|好)|业内第一|行业第一|唯一|顶级|独家最优|史上最低|最好(的|用)?/,
+ needs_disclosure:/(收益|年化|理财|基金|推荐|配置)/
+};
+/* ================= 通道与配置 ================= */
+var JEV_URL="https://jev.bocha.cn/v1/systemone", PROXY_URL="/v1/systemone";
+var KEY_STORE="guardrail_keys_v1";
+var CFG={jevKey:"",jevModel:"bocha-jev-v1"};
+var chanBase="", chanName="—";
+try{ var raw=localStorage.getItem(KEY_STORE); if(raw){ CFG=JSON.parse(raw)||CFG; } }catch(e){}
+/* 统一模型配置中心（model_settings.html）写入 finjev_cfg_v1，优先级高于本页独立配置 */
+try{ var _mc=JSON.parse(localStorage.getItem("finjev_cfg_v1")||"null");
+  if(_mc){ if(_mc.jevKey) CFG.jevKey=_mc.jevKey; if(_mc.jevModel) CFG.jevModel=_mc.jevModel; } }catch(e){}
+function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._h); toast._h=setTimeout(function(){ el.classList.remove("show"); },2600); }
+function setChannel(){
+  if(location.protocol==="http:"||location.protocol==="https:"){ chanBase=""; chanName="同源代理 /v1/systemone（BUILTIN_JEV 注入）"; }
+  else { chanBase=JEV_URL; chanName="file:// 直连官方 API"; }
+  document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 5×noul 并行闸门";
+}
+function cfg(){ return CFG.jevKey||"BUILTIN_JEV"; }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+async function probeChannel(text){
+  var t0=Date.now();
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify({model:(CFG.jevModel||"bocha-jev-v1"),state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
+    });
+    var txt=await r.text();
+    var ok=r.status>=200&&r.status<300;
+    return {ok:ok,code:r.status,ms:Date.now()-t0,raw:txt.slice(0,600)};
+  }catch(e){ return {ok:false,code:0,ms:Date.now()-t0,raw:String(e)}; }
+}
+async function selfTest(){
+  toast("自检中…");
+  var p=await probeChannel("连通性自检");
+  var nb=document.getElementById("netbar");
+  if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
+  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用 · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code+"（将走本地基线）"); }
+}
+/* ---- 配置模态 ---- */
+function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
+function closeCfg(){ document.getElementById("mask").classList.remove("open"); }
+function saveCfg(){
+  CFG.jevKey=document.getElementById("cfg_jev").value.trim();
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  closeCfg(); toast("Key 已保存"); setChannel();
+}
+function clearKey(){
+  document.getElementById("cfg_jev").value=""; CFG.jevKey="";
+  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
+  toast("已清除，走 BUILTIN_JEV 注入");
+}
+/* ---- chips ---- */
+var CHIPS=[
+ {cls:"",label:"合规回复（应放行）",
+  eg:"您好。这款产品为 R3 中风险等级，近一年年化约 2.8%，主要投资于债券类资产。需要提示您：投资有风险，历史业绩不代表未来表现，不保证本金和收益。以上内容不构成投资建议，您可根据自身风险承受能力选择。"},
+ {cls:"sp",label:"暗示收益回复（应拦截）",
+  eg:"这款理财历史业绩非常亮眼，连年正收益，值得您放心配置，基本稳赚不赔，跟存款一样安全，建议您把大部分资金都配进来。"},
+ {cls:"sp",label:"绝对化营销文案（应拦截）",
+  eg:"【限时爆款】全网最优理财，业内第一收益率，错过等一年！史上最低费率，买它就是稳赢，闭着眼睛投都能赚！"}
+];
+function initChips(){
+  var h="";
+  CHIPS.forEach(function(c){ h+='<button class="chip '+c.cls+'" onclick="fill(this)" data-eg="'+esc(c.eg)+'">'+c.label+'</button>'; });
+  document.getElementById("chips").innerHTML=h;
+}
+function fill(el){ document.getElementById("q").value=el.getAttribute("data-eg")||""; }
+/* ---- 请求构造：questions 字典（实测 schema） ---- */
+function buildQuestions(){
+  var qs={};
+  GATES.forEach(function(g){
+    qs[g.k]={type:"noul",
+      instructions:"判断该 AI 机器人拟回复文本是否触发此合规闸门",
+      criteria:{true:g.crit, false:g.critOk}};
+  });
+  return qs;
+}
+/* ---- Jev 调用：20s 超时 + 状态码先行 ---- */
+async function callJev(scene,text){
+  var t0=Date.now();
+  var body={
+    model:(CFG.jevModel||"bocha-jev-v1"),
+    state:{message:"业务场景："+scene+"。机器人拟回复："+(text.length>TH.state_max_chars?text.slice(0,TH.state_max_chars):text)},
+    questions:buildQuestions()
+  };
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null;
+  var timer=ac?setTimeout(function(){ try{ ac.abort(); }catch(e){} },20000):null;
+  try{
+    var r=await fetch(chanBase||PROXY_URL,{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
+      body:JSON.stringify(body),
+      signal:ac?ac.signal:undefined
+    });
+    if(!(r.status>=200&&r.status<300)){
+      var etxt="";
+      try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+    }
+    var data=await r.json();
+    var ms=Date.now()-t0, a=data.answers||{}, out={ok:true,ms:ms,probs:{}};
+    GATES.forEach(function(g){
+      var v=a[g.k];
+      out.probs[g.k]=(v&&typeof v.noul==="number")?v.noul:((v&&typeof v.p==="number")?v.p:null);
+    });
+    if(Object.keys(out.probs).every(function(k){ return out.probs[k]==null; }))
+      return {ok:false,err:"响应缺闸门数据："+JSON.stringify(data).slice(0,200),ms:ms};
+    return out;
+  }catch(e){
+    var em=String(e);
+    if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
+    return {ok:false,err:em,ms:Date.now()-t0};
+  }finally{ if(timer) clearTimeout(timer); }
+}
+/* ---- 降级：本地关键词基线 ---- */
+function localBaseline(text){
+  var o={demo:true};
+  GATES.forEach(function(g){
+    var re=KW[g.k];
+    if(!re){ o[g.k]=0.1; return; }
+    var hit=re.test(text);
+    if(g.k==="needs_disclosure"){
+      o[g.k]=(hit&&!/投资有风险|可能亏损|不保证|不代表未来|不构成投资建议/.test(text))?0.85:0.1;
+    }else{
+      o[g.k]=hit?0.92:0.08;
+    }
+  });
+  return o;
+}
+/* ---- 渲染 ---- */
+function fmt(x){ return (x==null)?"—":(Math.round(x*1000)/1000); }
+function gateRow(g,v,demo){
+  var st,cls;
+  if(v==null){ st="—"; cls="ok"; }
+  else if(v>=TH.tau_high){ st="触发拦截"; cls="bad"; }
+  else if(v>=TH.tau_low){ st="疑似"; cls="warn"; }
+  else { st="通过"; cls="ok"; }
+  var barCls=v==null?"":(v>=TH.tau_high?"bad":(v>=TH.tau_low?"warn":""));
+  var h='<div class="gate"><div class="g-head"><span class="g-name">'+g.name+'</span>'
+    +'<span class="g-st '+cls+'">'+st+'</span>'
+    +(demo?'<span class="g-st demo">模拟</span>':"")
+    +'<span style="font-size:10px;color:var(--ink-4);margin-left:auto;">p='+fmt(v)+'</span></div>'
+    +'<div class="bar"><i class="'+barCls+'" style="width:'+Math.round((v||0)*100)+'%"></i></div>';
+  if(v!=null&&v>=TH.tau_low){
+    h+='<div class="g-crit"><b>触发判据：</b>'+esc(g.crit)+'</div>';
+  }
+  return h+'</div>';
+}
+function fixSuggestion(text,probs,scene){
+  var tips=[];
+  if(probs.compliance_wording!=null&&probs.compliance_wording>=TH.tau_low) tips.push("删除绝对化用语（最优/第一/稳赢等），改为客观中性的产品事实描述");
+  if(probs.yield_promise!=null&&probs.yield_promise>=TH.tau_low) tips.push("删除确定性收益承诺，收益表述改为「历史业绩仅供参考，不预示未来表现」");
+  if(probs.needs_disclosure!=null&&probs.needs_disclosure>=TH.tau_low) tips.push("文末补充标准风险提示：投资有风险，可能亏损，不构成投资建议");
+  if(probs.investment_advice!=null&&probs.investment_advice>=TH.tau_low) tips.push("移除具体买卖指令与仓位建议，改为一般性产品说明");
+  if(probs.sensitive_leak!=null&&probs.sensitive_leak>=TH.tau_low) tips.push("删除或脱敏客户敏感字段，查询类诉求引导客户经官方渠道自助办理");
+  if(!tips.length) tips.push("按合规话术模板改写：客观描述产品要素 + 明确风险提示");
+  return tips.map(function(t){ return "• "+t; }).join("\n");
+}
+function rewriteTips(text,probs,scene){
+  var el=document.getElementById("rw");
+  if(!el){ return; }
+  var h='<h4>安全改写提示（本地模板 · 供机器人回归重写参考）</h4>'
+    +"【标准结构】1) 产品客观要素（风险等级/主要资产/历史区间收益）→ 2) 明确风险提示（投资有风险，历史业绩不代表未来，不保证本息）→ 3) 服务指引（不构成投资建议，可到官方渠道详询）。"
+    +"\n\n【针对本回复的整改点】\n"+esc(fixSuggestion(text,probs,scene));
+  el.innerHTML=h; el.classList.add("show");
+}
+function render(text,probs,demo,ms,scene){
+  var blocked=probs&&GATES.some(function(g){ return probs[g.k]!=null&&probs[g.k]>=TH.tau_high; });
+  var warned=probs&&GATES.some(function(g){ return probs[g.k]!=null&&probs[g.k]>=TH.tau_low&&probs[g.k]<TH.tau_high; });
+  var verdict,vcls;
+  if(blocked){ verdict="拦截 · 禁止出街"; vcls="block"; }
+  else if(warned){ verdict="人工审核后决定"; vcls="warn"; }
+  else { verdict="放行 · 可出街"; vcls="pass"; }
+  var h='<div class="verdict"><span class="v-badge '+vcls+'">'+verdict+'</span>'
+    +'<span class="v-sub">场景 '+esc(scene)+' · 耗时 '+ms+'ms'+(demo?' · 本地基线模拟':'')+'</span></div>';
+  if(blocked){
+    var trs=GATES.filter(function(g){ return probs[g.k]>=TH.tau_high; });
+    h+='<div class="block-box"><b>触发闸门：</b>'+trs.map(function(g){ return g.name+"（p="+fmt(probs[g.k])+"）"; }).join("、")
+      +'<span class="fix"><b>整改建议：</b>'+esc(fixSuggestion(text,probs,scene))+'</span>'
+      +'<span class="fix">拦截依据：金监总局《银行业保险业人工智能安全开发应用的指导意见》——生成式输出须设合规闸门与人工干预机制</span></div>'
+      +'<button class="btn" style="margin-top:8px;" onclick="rewriteTips(document.getElementById(\'q\').value,window._lastProbs,window._lastScene)">生成安全改写提示</button>';
+  }
+  h+='<div style="margin-top:8px">';
+  GATES.forEach(function(g){ h+=gateRow(g,probs[g.k],demo); });
+  h+='</div><div class="rewrite" id="rw"></div>';
+  document.getElementById("rep").innerHTML=h;
+  document.getElementById("demoFlag").className="demo-flag"+(demo?" show":"");
+  window._lastProbs=probs; window._lastScene=scene;
+  /* 右栏信号 */
+  var sh="";
+  GATES.forEach(function(g){
+    var v=probs[g.k], cls=(v!=null&&v>=TH.tau_high)?"bad":((v!=null&&v>=TH.tau_low)?"warn":"");
+    sh+='<div style="margin-top:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);"><span>'+g.name+'</span><b>'+fmt(v)+'</b></div>'
+      +'<div class="bar"><i class="'+cls+'" style="width:'+Math.round((v||0)*100)+'%"></i></div></div>';
+  });
+  document.getElementById("sig").innerHTML=sh;
+  return vcls;
+}
+/* ---- 主流程 ---- */
+var stats={n:0,block:0,warn:0,pass:0,msSum:0};
+async function check(){
+  var text=document.getElementById("q").value.trim();
+  var scene=document.getElementById("ovr").value;
+  if(!text){ toast("请输入机器人拟回复文本"); return; }
+  document.getElementById("go").disabled=true;
+  document.getElementById("go").textContent="检查中…";
+  document.getElementById("rep").innerHTML='<div id="dec_empty">检查执行中…（5×noul 并行闸门）</div>';
+  document.getElementById("demoFlag").className="demo-flag";
+  var t0=Date.now();
+  try{
+    var jr=await callJev(scene,text);
+    var total=Date.now()-t0, demo=false, probs=null;
+    if(jr.ok){ probs=jr.probs; }
+    else{
+      var em=jr.err||"未知错误";
+      if(/401|invalid API key/i.test(em)) em+=" → Jev 密钥失效，改用本地基线";
+      toast("Jev 不可用（"+em.slice(0,60)+"），已降级本地基线演示");
+      probs=localBaseline(text); demo=true;
+    }
+    var vcls=render(text,probs,demo,total,scene);
+    emitLog(scene,text,probs,demo,vcls,jr.ok?jr.ms:null,total);
+  }catch(e){
+    toast("检查异常："+String(e).slice(0,80));
+    document.getElementById("rep").innerHTML='<div id="dec_empty">执行异常：'+esc(String(e))+'</div>';
+  }finally{
+    document.getElementById("go").disabled=false;
+    document.getElementById("go").textContent="护 栏 检 查";
+  }
+}
+function emitLog(scene,text,probs,demo,vcls,jevMs,total){
+  var j={ts:new Date().toISOString(),req_id:"gr-"+Math.random().toString(36).slice(2,6),
+    app:"guardrail",mode:demo?"local_baseline":"jev",scene:scene,state_chars:text.length,
+    probs:(function(){ var o={}; GATES.forEach(function(g){ o[g.k]=fmt(probs[g.k]); }); return o; })(),
+    verdict:vcls,jev_ms:jevMs,total_ms:total};
+  document.getElementById("jlog").textContent=JSON.stringify(j);
+  stats.n++;
+  if(vcls==="block") stats.block++; else if(vcls==="warn") stats.warn++; else stats.pass++;
+  stats.msSum+=total;
+  document.getElementById("st_n").textContent=stats.n;
+  document.getElementById("st_block").textContent=stats.block;
+  document.getElementById("st_warn").textContent=stats.warn;
+  document.getElementById("st_pass").textContent=stats.pass;
+  document.getElementById("st_ms").textContent="均耗时："+Math.round(stats.msSum/stats.n)+"ms";
+}
+/* ---- 清空 / 初始化 ---- */
+function clearAll(){
+  stats={n:0,block:0,warn:0,pass:0,msSum:0};
+  document.getElementById("q").value="";
+  document.getElementById("rep").innerHTML='<div id="dec_empty">尚无裁决 —— 输入拟回复并执行护栏检查</div>';
+  document.getElementById("sig").innerHTML='<div id="dec_empty">等待检查执行</div>';
+  document.getElementById("jlog").textContent="—";
+  document.getElementById("st_n").textContent="0";
+  document.getElementById("st_block").textContent="0";
+  document.getElementById("st_warn").textContent="0";
+  document.getElementById("st_pass").textContent="0";
+  document.getElementById("st_ms").textContent="均耗时：—";
+  document.getElementById("demoFlag").className="demo-flag";
+  toast("会话已清空");
+}
+setChannel(); initChips();
+probeChannel("连通性自检").then(function(p){
+  if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
+  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用（HTTP "+p.code+"）· 执行检查将自动降级本地基线";
+});
+</script>
+</body>
+</html>

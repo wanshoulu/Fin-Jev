@@ -533,12 +533,23 @@ body{
    - Jev：首次使用点 ⚙ 填入自己的 Key（open.bocha.cn 免费注册），存浏览器 localStorage，不上传
    - Qwen：默认内置 Key → 由 nginx /v1/glm 同源转发替换为真实 Key，真实 Key 永不落前端 */
 var KEY_STORE = "duel_chat_keys_v4";
-var CFG = { jevKey: "", glmKey: "BUILTIN", glmModel: "GLM-4.6" };
+var CFG = { jevKey: "", jevModel: "bocha-jev-v1", glmKey: "BUILTIN", glmModel: "GLM-4.6" };
 try {
   var saved = JSON.parse(localStorage.getItem(KEY_STORE) || "null");
   if (saved) { CFG = saved; }
   if (!CFG.glmKey) CFG.glmKey = "BUILTIN";
   if (!CFG.glmModel || CFG.glmModel === "qwen3.7-flash") CFG.glmModel = "GLM-4.6";
+  if (!CFG.jevModel) CFG.jevModel = "bocha-jev-v1";
+} catch (e) {}
+/* 统一模型配置中心（model_settings.html）写入 finjev_cfg_v1，优先级高于本页独立配置 */
+try {
+  var _mc = JSON.parse(localStorage.getItem("finjev_cfg_v1") || "null");
+  if (_mc) {
+    if (_mc.jevKey) CFG.jevKey = _mc.jevKey;
+    if (_mc.jevModel) CFG.jevModel = _mc.jevModel;
+    if (_mc.glmKey) CFG.glmKey = _mc.glmKey;
+    if (_mc.glmModel) CFG.glmModel = _mc.glmModel;
+  }
 } catch (e) {}
 
 var JEV_URL = "https://jev.bocha.cn/v1/systemone";
@@ -947,7 +958,7 @@ function jevFetch(url, text, gr){
   var built = buildQuestions(gr);
   /* 注意：Jev API 严格校验（extra_forbidden），请求体只能有 model/state/questions 三个键，
      选题信息走 jevSelect 全局 + recordTrace 标签，绝不能塞进请求体（实测 422） */
-  var reqBody = { model:"bocha-jev-v1", state:{ message:text }, questions: built.qs };
+  var reqBody = { model:(CFG.jevModel||"bocha-jev-v1"), state:{ message:text }, questions: built.qs };
   recordTrace("jev_req", url + "　[" + (built.full ? "全量 " : "图谱选题 ") + built.kept.length + " 题" + (built.dropped.length ? "，裁剪 " + built.dropped.join("/") : "") + "]", JSON.stringify(reqBody, null, 2));
   jevSelect = built;                     /* 供门控/详情阶段读取本轮选题 */
   /* 无本机 Key 时发 BUILTIN_JEV 占位符：本地转发器若配有 jev_key.local.json 则替换；
@@ -1009,7 +1020,7 @@ function probeChannel(url){
   return fetch(url, {
     method:"POST",
     headers:{ "Authorization":"Bearer " + key, "Content-Type":"application/json" },
-    body: JSON.stringify({ model:"bocha-jev-v1", state:{ message:"probe" }, questions:{} })
+    body: JSON.stringify({ model:(CFG.jevModel||"bocha-jev-v1"), state:{ message:"probe" }, questions:{} })
   }).then(function(r){
     /* 401/403 = 通道通但需要认证（Key 未填或占位符），视为探测成功 */
     if (r.status === 401 || r.status === 403) return true;
