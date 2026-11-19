@@ -177,7 +177,7 @@ select:focus,input[type=text]:focus{border-color:var(--jev);}
   </div>
   <div class="btns">
     <button class="btn dark" onclick="selfTest()">连接自检</button>
-    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="goCfg()">⚙ 模型配置</button>
     <button class="btn dark" onclick="clearAll()">清空会话</button>
   </div>
 </header>
@@ -229,17 +229,6 @@ select:focus,input[type=text]:focus{border-color:var(--jev);}
   </div>
 </div>
 
-<div id="mask"><div class="mbox">
-  <h3>⚙ Key 设置</h3>
-  <label>Jev API Key（博查 System One）</label>
-  <input id="cfg_jev" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入">
-  <div class="note">同源访问（8787）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需在此填入官方 Key（仅存于浏览器 localStorage）。</div>
-  <div class="mrow">
-    <button class="btn" onclick="closeCfg()">取消</button>
-    <button class="btn" onclick="clearKey()">清除</button>
-    <button class="btn primary" onclick="saveCfg()">保存</button>
-  </div>
-</div></div>
 <div id="toast"></div>
 
 <script>
@@ -305,18 +294,8 @@ async function selfTest(){
   if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
   else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用 · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code+"（将走本地基线）"); }
 }
-function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
-function closeCfg(){ document.getElementById("mask").classList.remove("open"); }
-function saveCfg(){
-  CFG.jevKey=document.getElementById("cfg_jev").value.trim();
-  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
-  closeCfg(); toast("Key 已保存"); setChannel();
-}
-function clearKey(){
-  document.getElementById("cfg_jev").value=""; CFG.jevKey="";
-  try{ localStorage.setItem(KEY_STORE,JSON.stringify(CFG)); }catch(e){}
-  toast("已清除，走 BUILTIN_JEV 注入");
-}
+/* ---- 跳转统一模型配置中心 ---- */
+function goCfg(){ location.href="model_settings.html"; }
 /* ---- chips / 工具下拉 ---- */
 var CHIPS=[
  {cls:"",label:"低风险：查余额（自动执行）",tool:"query_balance"},

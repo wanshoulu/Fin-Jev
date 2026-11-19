@@ -428,7 +428,7 @@ body{
   </div>
   <div class="btns">
     <button class="btn dark" onclick="selfTest()">连接自检</button>
-    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="goCfg()">⚙ 模型配置</button>
     <button class="btn dark" onclick="clearChat()">清空会话</button>
   </div>
 </header>
@@ -508,23 +508,6 @@ body{
   </div>
 </div>
 
-<div class="mask" id="mask">
-  <div class="modal">
-    <h3>引擎配置</h3>
-    <label>Bocha Jev API Key</label>
-    <input id="cfg_jev" placeholder="sk-..." autocomplete="off">
-    <div class="tip">open.bocha.cn 注册获取；仅保存在本浏览器 localStorage，不随页面代码分发。</div>
-    <label>Qwen API Key（留空 = 本地基线演示模式）</label>
-    <input id="cfg_glm" placeholder="千问 maas.qianwenaiapi.com 的 Key，或留空用服务器内置 Key">
-    <div class="tip">填 Key 后尝试真实调用；浏览器直调可能被 CORS 拦截，失败会自动降级回基线。</div>
-    <label>Qwen 模型名</label>
-    <input id="cfg_glm_model" value="qwen3.7-flash">
-    <div class="mbtns">
-      <button class="hbtn" onclick="closeCfg()">取消</button>
-      <button class="hbtn pri" onclick="saveCfg()">保存</button>
-    </div>
-  </div>
-</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1573,12 +1556,11 @@ function mountFaqCard(domainKey, anchor){
 
 function send(text){
   if (busy) return;
-  /* 源码不内置 Key：无 Key 时打开配置面板引导填写（open.bocha.cn 免费注册）。
-     若本地转发器配有 jev_key.local.json，直接关掉面板发 BUILTIN_JEV 即可由服务器替换 */
-  if (!CFG.jevKey){
-    openCfg();
-    el("cfg_jev").focus();
-    toast("首次使用：填入 Bocha Jev Key（仅存本机浏览器；或在本机 jev_key.local.json 配置后点取消）", 4600);
+  /* 源码不内置 Key：无 Key 时跳转统一模型配置中心引导填写（open.bocha.cn 免费注册）。
+     若同源代理配有 jev_key.local.json，代理会为 BUILTIN_JEV 占位符注入真实 Key */
+  if (!CFG.jevKey && !sameOriginServer){
+    goCfg();
+    toast("首次使用：在模型配置中心填入 Jev Key（仅存本机浏览器；走同源代理时留空即可）", 4600);
     return;
   }
   busy = true; el("sendBtn").disabled = true;
@@ -1888,7 +1870,7 @@ function send(text){
         '<div class="vr">' + verdict + '</div>' +
       '</div>' +
       (gr.demo
-        ? '<div class="hint">⚠ 演示模式：本地规则计算，非真实 LLM。在 ⚙ Key 设置填入千问 Key 即为真实调用。</div>'
+        ? '<div class="hint">⚠ 演示模式：本地规则计算，非真实 LLM。在右上角 ⚙ 模型配置 里配置 GLM Key 即为真实调用。</div>'
         : '<div class="meta"><span class="mchip g">⟳ 生成 ' + gr.ms + 'ms</span><span class="mchip">距发送 ' + tArrive0 + 'ms</span><span class="mchip">' + (gr.viaChan ? "本地转发" : "同源转发") + '</span></div>');
     playBars(gc);
     // === 合并阶段完成（若 Jev 已结束则全链路收尾；对比不裁决）===
@@ -1916,7 +1898,7 @@ function send(text){
 
 /* ================= 自检与配置 ================= */
 function selfTest(){
-  if (!CFG.jevKey){ toast("请先在 Key 设置里填入 Bocha Jev Key"); return; }
+  if (!CFG.jevKey){ toast("请先在右上角 ⚙ 模型配置 里填入 Jev Key"); return; }
   el("netbar").className = "netbar wait";
   el("netbar").textContent = "重新探测通道中…";
   toast("自检中…");
@@ -1931,19 +1913,7 @@ function selfTest(){
     toast("✗ 所有通道不可用", 3600);
   });
 }
-function openCfg(){
-  el("cfg_jev").value = CFG.jevKey; el("cfg_glm").value = CFG.glmKey; el("cfg_glm_model").value = CFG.glmModel;
-  el("mask").classList.add("show");
-}
-function closeCfg(){ el("mask").classList.remove("show"); }
-function saveCfg(){
-  CFG.jevKey = el("cfg_jev").value.trim();
-  CFG.glmKey = el("cfg_glm").value.trim();
-  CFG.glmModel = el("cfg_glm_model").value.trim() || "GLM-4.6";
-  try { localStorage.setItem(KEY_STORE, JSON.stringify(CFG)); } catch (e) {}
-  closeCfg();
-  toast("已保存" + (CFG.glmKey ? "（Qwen 实时模式）" : "（Qwen 基线演示模式）"));
-}
+function goCfg(){ location.href = "model_settings.html"; }
 
 initStatic();
 bindPipeToggles();
