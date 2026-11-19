@@ -533,12 +533,12 @@ body{
    - Jev：首次使用点 ⚙ 填入自己的 Key（open.bocha.cn 免费注册），存浏览器 localStorage，不上传
    - Qwen：默认内置 Key → 由 nginx /v1/glm 同源转发替换为真实 Key，真实 Key 永不落前端 */
 var KEY_STORE = "duel_chat_keys_v4";
-var CFG = { jevKey: "", glmKey: "BUILTIN", glmModel: "qwen3.7-flash" };
+var CFG = { jevKey: "", glmKey: "BUILTIN", glmModel: "GLM-4.6" };
 try {
   var saved = JSON.parse(localStorage.getItem(KEY_STORE) || "null");
   if (saved) { CFG = saved; }
   if (!CFG.glmKey) CFG.glmKey = "BUILTIN";
-  if (!CFG.glmModel) CFG.glmModel = "qwen3.7-flash";
+  if (!CFG.glmModel || CFG.glmModel === "qwen3.7-flash") CFG.glmModel = "GLM-4.6";
 } catch (e) {}
 
 var JEV_URL = "https://jev.bocha.cn/v1/systemone";
@@ -1094,7 +1094,7 @@ function buildGlmRequest(text, mode, candidates, vecHits, gr){
       PROBES.map(function(p){ return "· " + p.name + "(" + p.key + ")：" + p.ct; }).join("\n") +
       "\n只输出一个 JSON 对象，不要输出任何其他文字。格式：{\"probs\":{\"" + keysAll.join("\":0-1,\"") + "\":0-1},\"top\":\"" + keysAll.join("|") + "\",\"reason\":\"一句话理由\"}";
     return {
-      model: CFG.glmModel || "qwen3.7-flash", temperature: 0.1, max_tokens: 300, enable_thinking: false,
+      model: CFG.glmModel || "GLM-4.6", temperature: 0.1, max_tokens: 300, enable_thinking: false,
       messages: [
         { role:"system", content: sysPrompt },
         { role:"user", content: text }
@@ -1145,7 +1145,7 @@ function buildGlmRequest(text, mode, candidates, vecHits, gr){
     "2. probs 只需给出各候选的概率。\n" +
     "3. 只输出一个 JSON 对象：{\"probs\":{\"" + cands.map(function(c){ return c.key; }).join("\":0-1,\"") + "\":0-1},\"top\":\"" + cands.map(function(c){ return c.key; }).join("|") + "|none\",\"reason\":\"一句话理由\"}";
   return {
-    model: CFG.glmModel || "qwen3.7-flash", temperature: 0.1, max_tokens: 300, enable_thinking: false,
+    model: CFG.glmModel || "GLM-4.6", temperature: 0.1, max_tokens: 300, enable_thinking: false,
     messages: [
       { role:"system", content: sysCand },
       { role:"user", content: text }
@@ -1165,7 +1165,7 @@ function callGlmReal(text, mode, candidates, vecHits, gr){
   recordTrace("glm_req", url, JSON.stringify(reqBody, null, 2));
   return fetch(url, {
     method:"POST",
-    headers:{ "Authorization":"Bearer " + (CFG.glmKey === "BUILTIN" ? "placeholder" : CFG.glmKey), "Content-Type":"application/json" },
+    headers:{ "Authorization":"Bearer " + (CFG.glmKey === "BUILTIN" ? "BUILTIN" : CFG.glmKey), "Content-Type":"application/json" },
     body: JSON.stringify(reqBody)
   }).then(function(r){ return r.json().then(function(j){
       recordTrace("glm_res", "HTTP " + r.status, JSON.stringify(j, null, 2));
@@ -1928,7 +1928,7 @@ function closeCfg(){ el("mask").classList.remove("show"); }
 function saveCfg(){
   CFG.jevKey = el("cfg_jev").value.trim();
   CFG.glmKey = el("cfg_glm").value.trim();
-  CFG.glmModel = el("cfg_glm_model").value.trim() || "qwen3.7-flash";
+  CFG.glmModel = el("cfg_glm_model").value.trim() || "GLM-4.6";
   try { localStorage.setItem(KEY_STORE, JSON.stringify(CFG)); } catch (e) {}
   closeCfg();
   toast("已保存" + (CFG.glmKey ? "（Qwen 实时模式）" : "（Qwen 基线演示模式）"));
