@@ -146,23 +146,36 @@ body{
 #toast.show{opacity:.92; transform:translateX(-50%) translateY(0);}
 .demo-flag{display:none; margin-top:10px; font-size:11px; color:var(--glm); background:var(--glm-bg); border-radius:6px; padding:5px 10px;}
 .demo-flag.show{display:inline-block;}
-/* ---- 质检管道（节点点击展开，参考语义路由测试台） ---- */
-.pipe{display:flex;flex-direction:column;}
-.pl{border:1px solid var(--line-1); border-radius:10px; padding:10px 12px; background:var(--bg); cursor:pointer; transition:border-color .15s;}
-.pl:hover{border-color:var(--jev);}
-.pl-head{display:flex; align-items:center; gap:8px;}
-.pl-ico{font-size:10px; font-weight:700; color:var(--ink-3); background:var(--line-2); border-radius:5px; padding:2px 6px; letter-spacing:.5px;}
-.pl-name{font-size:13px; font-weight:600; color:var(--ink-1);}
-.pl-st{margin-left:auto; font-size:11px; padding:2px 8px; border-radius:999px; background:var(--line-2); color:var(--ink-3); white-space:nowrap;}
+/* ---- 质检管道（时间线轴样式，与语义路由测试台同款） ---- */
+#pipe{display:flex; flex-direction:column; gap:0;}
+.pl{position:relative; padding:9px 10px 9px 14px; border-left:3px solid var(--line-1); margin-left:8px;}
+.pl::before{
+  content:""; position:absolute; left:-7px; top:16px;
+  width:11px; height:11px; border-radius:50%;
+  background:var(--card); border:2px solid var(--line-1);
+}
+.pl.hit{border-left-color:var(--jev);} .pl.hit::before{background:var(--jev); border-color:var(--jev);}
+.pl.skip{border-left-color:var(--amber);} .pl.skip::before{background:var(--amber); border-color:var(--amber);}
+.pl.pass{border-left-color:var(--ink-4);} .pl.pass::before{border-color:var(--ink-4);}
+.pl.err{border-left-color:var(--red);} .pl.err::before{background:var(--red); border-color:var(--red);}
+.pl-head{display:flex; align-items:center; gap:8px; cursor:pointer;}
+.pl-tag{font-size:10px; font-weight:700; color:var(--ink-2); background:var(--bg); border:0.5px solid var(--line-1); border-radius:4px; padding:1px 6px;}
+.pl-name{font-size:13px; font-weight:600;}
+.pl-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px; white-space:nowrap;}
 .pl-st.hit{background:var(--jev-bg); color:var(--jev);}
-.pl-st.warn,.pl-st.skip{background:var(--amber-bg); color:var(--amber);}
+.pl-st.skip{background:var(--amber-bg); color:var(--amber);}
 .pl-st.err{background:var(--red-bg); color:var(--red);}
-.pl-ms{font-size:10px; color:var(--ink-4); width:52px; text-align:right;}
-.pl-brief{font-size:11px; color:var(--ink-4); margin-top:5px;}
-.pd{display:none; margin-top:8px;}
-.pd.open{display:block;}
-.pd pre{margin:0; white-space:pre-wrap; word-break:break-all; font-size:10.5px; line-height:1.6; color:var(--ink-2); background:var(--line-2); border-radius:8px; padding:9px 10px; max-height:300px; overflow:auto;}
-.parr{font-size:9px; color:var(--ink-4); text-align:center; padding:3px 0;}
+.pl-st.pass{background:var(--bg); color:var(--ink-3);}
+.pl-ms{font-size:11px; color:var(--ink-4); margin-left:auto; white-space:nowrap;}
+.pl-brief{font-size:12px; color:var(--ink-3); margin:3px 0 0 0;}
+.pl-detail{display:none; margin-top:7px;}
+.pl-detail.open{display:block;}
+.pl-detail pre{
+  font-size:10px; line-height:1.5; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px; padding:8px 10px;
+  color:var(--ink-2); font-family:Consolas,Menlo,monospace;
+}
+.pl-arrow{font-size:11px; color:var(--ink-4); margin-left:14px; line-height:1;}
 </style>
 </head>
 <body>
@@ -461,13 +474,12 @@ var PIPE=[
 function renderPipe(){
   var h="";
   PIPE.forEach(function(p,i){
-    h+='<div class="pl" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
-      +'<span class="pl-ico">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
-      +'<span class="pl-st" id="pst_'+i+'">待命</span>'
-      +'<span class="pl-ms" id="pms_'+i+'"></span></div>'
-      +'<div class="pl-brief">'+p.brief+'</div>'
-      +'<div class="pd" id="pd_'+i+'"><pre></pre></div></div>';
-    if(i<PIPE.length-1) h+='<div class="parr">▼</div>';
+    h+='<div class="pl pass" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
+      +'<span class="pl-tag">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
+      +'<span class="pl-st pass" id="pst_'+i+'">待命</span><span class="pl-ms" id="pms_'+i+'"></span></div>'
+      +'<p class="pl-brief">'+p.brief+'</p>'
+      +'<div class="pl-detail" id="pd_'+i+'"><pre>—</pre></div></div>';
+    if(i<PIPE.length-1) h+='<div class="pl-arrow">▼</div>';
   });
   document.getElementById("pipe").innerHTML=h;
 }
