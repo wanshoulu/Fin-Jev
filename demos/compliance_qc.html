@@ -370,11 +370,11 @@ async function callJev(text){
     if(!(r.status>=200&&r.status<300)){
       var etxt="";
       try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
-      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0,req:body};
     }
     var data=await r.json();
     var ms=Date.now()-t0;
-    var a=data.answers||{}, out={ok:true,ms:ms,probs:{},overall:null};
+    var a=data.answers||{}, out={ok:true,ms:ms,probs:{},overall:null,req:body,raw:data};
     PROBES.forEach(function(p){
       var v=a[p.k];
       var n=(v&&typeof v.noul==="number")?v.noul:((v&&typeof v.p==="number")?v.p:null);
@@ -384,12 +384,12 @@ async function callJev(text){
     out.overall={choice:(typeof ov.choice==="string")?ov.choice:(ov.key||null),
       conf:(typeof ov.confidence==="number")?ov.confidence:null,
       probs:ov.probabilities||ov.probs||null};
-    if(out.probs.yield_promise==null&&out.overall.choice==null) return {ok:false,err:"响应缺探针数据："+JSON.stringify(data).slice(0,200),ms:ms};
+    if(out.probs.yield_promise==null&&out.overall.choice==null) return {ok:false,err:"响应缺探针数据："+JSON.stringify(data).slice(0,200),ms:ms,req:body};
     return out;
   }catch(e){
     var em=String(e);
     if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
-    return {ok:false,err:em,ms:Date.now()-t0};
+    return {ok:false,err:em,ms:Date.now()-t0,req:body};
   }finally{ if(timer) clearTimeout(timer); }
 }
 /* ---- 降级：本地关键词基线（模拟 noul 值） ---- */
@@ -474,6 +474,42 @@ function renderReport(text,probs,overall,rhits,demo,ms){
   document.getElementById("overall").innerHTML=oh;
   return vcls;
 }
+/* ---- 质检管道可视化（L0 规则 → L1 Jev 探针 → L2 定级，节点点击展开） ---- */
+var PIPE=[
+  {id:"L0",name:"RuleScan 规则扫描",brief:"确定性硬拦截：违禁表述 / 敏感操作正则直查"},
+  {id:"L1",name:"JevProbes 并行探针",brief:"单请求 6×noul 违规探针 + 1×choice 整体定级（点击展开模型输入与原始返回）"},
+  {id:"L2",name:"Verdict 综合定级",brief:"规则硬命中或任一探针违规成立 → 拦截；仅存疑 → 预警；否则通过"}
+];
+function renderPipe(){
+  var h="";
+  PIPE.forEach(function(p,i){
+    h+='<div class="pl" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
+      +'<span class="pl-ico">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
+      +'<span class="pl-st" id="pst_'+i+'">待命</span>'
+      +'<span class="pl-ms" id="pms_'+i+'"></span></div>'
+      +'<div class="pl-brief">'+p.brief+'</div>'
+      +'<div class="pd" id="pd_'+i+'"><pre></pre></div></div>';
+    if(i<PIPE.length-1) h+='<div class="parr">▼</div>';
+  });
+  document.getElementById("pipe").innerHTML=h;
+}
+function toggleDetail(i){ document.getElementById("pd_"+i).classList.toggle("open"); }
+function setPl(i,state,st,ms,brief,detail){
+  var el=document.getElementById("pl_"+i);
+  if(!el) return;
+  el.className="pl "+state;
+  var stEl=document.getElementById("pst_"+i);
+  stEl.className="pl-st "+state; stEl.textContent=st;
+  document.getElementById("pms_"+i).textContent=(ms!=null)?(ms+" ms"):"";
+  if(brief!=null) el.querySelector(".pl-brief").textContent=brief;
+  if(detail!=null) document.getElementById("pd_"+i).querySelector("pre").textContent=detail;
+}
+function resetPipe(){
+  PIPE.forEach(function(_,i){
+    setPl(i,"pass","待命",null,null,null);
+    document.getElementById("pd_"+i).classList.remove("open");
+  });
+}
 /* ---- 主流程 ---- */
 var stats={n:0,block:0,warn:0,pass:0,msSum:0};
 async function qc(){
@@ -481,22 +517,52 @@ async function qc(){
   if(!text){ toast("请粘贴坐席对话内容"); return; }
   document.getElementById("go").disabled=true;
   document.getElementById("go").textContent="质检中…";
+  resetPipe();
   document.getElementById("rep").innerHTML='<div id="dec_empty">质检执行中…（规则扫描 + Jev 并行探针）</div>';
   document.getElementById("demoFlag").className="demo-flag";
   var t0=Date.now();
   try{
     var rhits=ruleScan(text);
+    /* L0 规则扫描 */
+    setPl(0, rhits.length?"err":"hit", rhits.length?("硬命中 "+rhits.length+" 条"):"通过", Date.now()-t0,
+      rhits.length?("正则硬命中："+rhits.map(function(r){ return r.name+"「"+r.word+"」"; }).join("、")):"无违禁/敏感正则命中 → 进入语义探针",
+      rhits.length?("命中规则：\n"+rhits.map(function(r){ return "· "+r.name+"：关键词「"+r.word+"」\n  → 确定性违规，无需语义判定即拦截"; }).join("\n")):"规则库 "+RULES.length+" 条正则逐条匹配对话文本，无命中。\n规则只做确定性捷径，不影响后续语义探针判定。");
     var jr=await callJev(text);
     var total=Date.now()-t0, vcls, demo=false, probs=null, overall=null;
+    /* L1 Jev 并行探针 */
     if(jr.ok){
       probs=jr.probs; overall=jr.overall;
+      setPl(1,"hit","返回",jr.ms,PROBES.length+"×noul + 1×choice 完成",
+        "模型输入（实际发送的请求体）：\n"+JSON.stringify(jr.req,null,2).slice(0,2400)
+        +"\n\n──────── 原始返回 ────────\n"+JSON.stringify(jr.raw,null,2).slice(0,1600));
     }else{
       var em=jr.err||"未知错误";
       if(/401|invalid API key/i.test(em)) em+=" → Jev 密钥失效，改用本地基线";
       toast("Jev 不可用（"+em.slice(0,60)+"），已降级本地基线演示");
       probs=localBaseline(text); demo=true;
+      setPl(1,"err","降级",jr.ms,"Jev 不可用 → 本地关键词基线（模拟值）",
+        (jr.req?"模型输入（实际发送的请求体）：\n"+JSON.stringify(jr.req,null,2).slice(0,1200)+"\n\n":"")
+        +"失败原因："+em+"\n→ 已降级本地关键词基线，以下探针值为模拟，仅供界面演示");
     }
     vcls=renderReport(text,probs,overall,rhits,demo,total);
+    /* L2 综合定级 */
+    var bad=PROBES.filter(function(p){ return probs[p.k]!=null&&probs[p.k]>=TH.tau_high; });
+    var warn=PROBES.filter(function(p){ return probs[p.k]!=null&&probs[p.k]>=TH.tau_low&&probs[p.k]<TH.tau_high; });
+    var lv=(vcls==="block")?"err":(vcls==="warn"?"skip":"hit");
+    setPl(2,lv, (vcls==="block")?"拦截":(vcls==="warn"?"预警":"通过"), null,
+      (vcls==="block")?"违规成立 → 强制人工复核":(vcls==="warn"?"存疑 → 入质检复核队列":"通过 → 仅审计留痕"),
+      "定级输入：\n"
+      +"· 规则硬命中："+(rhits.length?rhits.map(function(r){ return r.name+"「"+r.word+"」"; }).join("；"):"无")+"\n"
+      +"· 违规成立（p≥"+TH.tau_high+"）："
+      +((bad.length&&!demo)?bad.map(function(p){ return p.name+"="+fmt(probs[p.k]); }).join("；"):((bad.length&&demo)?bad.map(function(p){ return p.name+"（模拟）"; }).join("；"):"无"))+"\n"
+      +"· 存疑（"+TH.tau_low+"≤p<"+TH.tau_high+"）："
+      +((warn.length&&!demo)?warn.map(function(p){ return p.name+"="+fmt(probs[p.k]); }).join("；"):((warn.length&&demo)?warn.map(function(p){ return p.name+"（模拟）"; }).join("；"):"无"))+"\n"
+      +(overall&&overall.choice!=null?("· 整体定级：overall_risk="+overall.choice+(overall.conf!=null?"（confidence "+fmt(overall.conf)+"）":"")+"\n"):"")
+      +(demo?"· ⚠ 本笔为本地基线模拟值，非 Jev 真实判定\n":"")
+      +"\n决策规则（阈值 TH={τ_high:"+TH.tau_high+", τ_low:"+TH.tau_low+"}）：\n"
+      +"· 规则硬命中 或 任一探针 p≥τ_high → 拦截（强制人工复核 + 抽样复听 + 禁缓存）\n"
+      +"· 否则存在 τ_low≤p<τ_high → 预警（入质检复核队列，可下调抽检率）\n"
+      +"· 否则 → 通过（仅审计留痕）");
     emitLog(text,rhits,probs,overall,demo,vcls,jr.ok?jr.ms:null,total);
   }catch(e){
     toast("质检异常："+String(e).slice(0,80));
@@ -526,6 +592,7 @@ function emitLog(text,rhits,probs,overall,demo,vcls,jevMs,total){
 /* ---- 清空 / 初始化 ---- */
 function clearAll(){
   stats={n:0,block:0,warn:0,pass:0,msSum:0};
+  resetPipe();
   document.getElementById("q").value="";
   document.getElementById("rep").innerHTML='<div id="dec_empty">尚无报告 —— 粘贴对话并执行质检</div>';
   document.getElementById("overall").innerHTML='<div id="dec_empty">等待质检执行</div>';
@@ -538,7 +605,7 @@ function clearAll(){
   document.getElementById("demoFlag").className="demo-flag";
   toast("会话已清空");
 }
-setChannel(); initChips();
+setChannel(); initChips(); renderPipe();
 probeChannel("连通性自检").then(function(p){
   if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
   else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 不可用（HTTP "+p.code+"）· 执行质检将自动降级本地基线";
