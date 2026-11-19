@@ -357,9 +357,12 @@ var RULES=[
 /* ================= 通道与配置（与 duel_chat 同模式） ================= */
 var JEV_URL="https://jev.bocha.cn/v1/systemone", PROXY_URL="/v1/systemone";
 var KEY_STORE="semantic_routing_keys_v1";
-var CFG={jevKey:""};
+var CFG={jevKey:"",jevModel:"bocha-jev-v1"};
 var useProxy=false, chanBase="", chanName="—";
 try{ var raw=localStorage.getItem(KEY_STORE); if(raw){ CFG=JSON.parse(raw)||CFG; } }catch(e){}
+/* 统一模型配置中心（model_settings.html）写入 finjev_cfg_v1，优先级高于本页独立配置 */
+try{ var _mc=JSON.parse(localStorage.getItem("finjev_cfg_v1")||"null");
+  if(_mc){ if(_mc.jevKey) CFG.jevKey=_mc.jevKey; if(_mc.jevModel) CFG.jevModel=_mc.jevModel; } }catch(e){}
 function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._h); toast._h=setTimeout(function(){ el.classList.remove("show"); },2200); }
 function setChannel(){
   if(location.protocol==="http:"||location.protocol==="https:"){ useProxy=true; chanBase=""; chanName="同源代理 /v1/systemone（BUILTIN_JEV 注入）"; }
@@ -373,7 +376,7 @@ async function probeChannel(text){
     var r=await fetch(chanBase||PROXY_URL,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
-      body:JSON.stringify({model:"bocha-jev-v1",state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
+      body:JSON.stringify({model:(CFG.jevModel||"bocha-jev-v1"),state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
     });
     var txt=await r.text();
     var ok=r.status>=200&&r.status<300; /* 401/403 表示 Key 无效或代理拒绝，不能判为可用 */
@@ -385,7 +388,7 @@ async function selfTest(){
   document.getElementById("netbar").innerHTML="通道自检中…";
   var p=await probeChannel("连通性自检");
   var nb=document.getElementById("netbar");
-  if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
+  if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+(CFG.jevModel||"bocha-jev-v1")+" · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
   else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+" 自检失败</b> · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code); }
 }
 /* ---- 配置模态 ---- */
@@ -518,7 +521,7 @@ function parseMain(a){
 async function callJev(q){
   var t0=Date.now();
   var body={
-    model:"bocha-jev-v1",
+    model:(CFG.jevModel||"bocha-jev-v1"),
     state:{message:q.length>TH.state_max_chars?q.slice(0,TH.state_max_chars):q},
     questions:buildQuestions()
   };
@@ -535,17 +538,17 @@ async function callJev(q){
     if(!(r.status>=200&&r.status<300)){
       var etxt="";
       try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
-      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0,req:body};
     }
     var data=await r.json();
     var ms=(data.metadata&&data.metadata.inference_ms)||Date.now()-t0;
     var a=data.answers||{}, p=parseMain(a.main), hr=parseNoul(a.high_risk), nlc=parseNoul(a.needs_long_context);
-    if(!p.category) return {ok:false,err:"响应缺 main.choice key："+JSON.stringify(data).slice(0,200),ms:ms};
-    return {ok:true,raw:data,category:p.category,prob_max:p.prob,probs:p.probs,hr:hr,nlc:nlc,ms:ms};
+    if(!p.category) return {ok:false,err:"响应缺 main.choice key："+JSON.stringify(data).slice(0,200),ms:ms,req:body};
+    return {ok:true,raw:data,category:p.category,prob_max:p.prob,probs:p.probs,hr:hr,nlc:nlc,ms:ms,req:body};
   }catch(e){
     var em=String(e);
     if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
-    return {ok:false,err:em,ms:Date.now()-t0};
+    return {ok:false,err:em,ms:Date.now()-t0,req:body};
   }finally{ if(timer) clearTimeout(timer); }
 }
 /* ---- L4 DecisionEngine：闸门 → 置信分层 → 兜底 ---- */
@@ -731,7 +734,7 @@ async function route(){
     if(!jr.ok){
       var em=jr.err||"未知错误";
       if(/401|invalid API key/i.test(em)) em+="\n→ Jev 密钥失效：点右上角 ⚙ Key 设置 更换后重试";
-      setPl(3,"err","失败",jr.ms,em,"");
+      setPl(3,"err","失败",jr.ms,em,jr.req?("模型输入（实际发送的请求体）：\n"+JSON.stringify(jr.req,null,2).slice(0,2400)):"");
       toast("L3 语义调用失败，已按 default 档异常兜底");
       R.layer="fallback";
       applyL4(R,{category:"default",prob:null,probs:null,hr:null,nlc:null});
@@ -740,7 +743,8 @@ async function route(){
     R.jev_ms=jr.ms;
     setPl(3,"hit","返回",jr.ms,"category="+jr.category+" · prob_max="+fmt(jr.prob_max)
       +" · high_risk="+fmt(jr.hr)+" · long_ctx="+fmt(jr.nlc),
-      "原始返回：\n"+JSON.stringify(jr.raw,null,2).slice(0,1600));
+      "模型输入（实际发送的请求体）：\n"+JSON.stringify(jr.req,null,2).slice(0,2400)
+      +"\n\n──────── 原始返回 ────────\n"+JSON.stringify(jr.raw,null,2).slice(0,1600));
     /* L4 DecisionEngine */
     applyL4(R,{category:jr.category,prob:jr.prob_max,probs:jr.probs,hr:jr.hr,nlc:jr.nlc});
   }finally{ busy(false); }
