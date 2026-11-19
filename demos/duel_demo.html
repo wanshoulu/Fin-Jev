@@ -5,21 +5,36 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>双引擎对决 · Jev noul 阵列 vs GLM-5.3-Flash 实时运行对比</title>
 <style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+}
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f4f5f7; color:#1f2329; padding:26px 16px 60px; }
+body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink-1); padding:26px 16px 60px; }
 .stage { max-width:1180px; margin:0 auto; }
-.hd { text-align:center; margin-bottom:22px; }
-.hd h1 { font-size:20px; font-weight:500; }
-.hd p { font-size:12.5px; color:#6b7078; margin-top:4px; }
+/* ---- 顶栏（深墨色品牌条） ---- */
+.topbar{background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);color:#fff;padding:13px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:11px;min-width:0;flex-wrap:wrap;}
+.brand-mark{width:24px;height:24px;border-radius:7px;flex:0 0 24px;background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);box-shadow:0 1px 4px rgba(0,0,0,.35);}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.01em;white-space:nowrap;}
+.brand-name .sub{font-size:11px;color:rgba(255,255,255,.55);font-weight:400;margin-left:10px;letter-spacing:0;}
+.topbar .btns{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;}
 
 .casebar { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:18px; }
-.casebtn { border:0.5px solid #c9cdd4; background:#fff; border-radius:20px; padding:7px 16px; font-size:12.5px; cursor:pointer; transition:all .15s; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.casebtn:hover { border-color:#0f6e56; color:#0f6e56; }
-.casebtn.on { background:#1f2329; color:#fff; border-color:#1f2329; }
+.casebtn { font-family:inherit; font-size:12px; cursor:pointer; background:var(--card); color:var(--ink-2); border:1px solid var(--line-1); border-radius:8px; padding:6px 13px; transition:border-color .15s, box-shadow .15s, background .15s, color .15s; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.casebtn:hover { border-color:var(--jev); color:var(--jev); background:var(--jev-bg); }
+.casebtn.on { background:var(--ink-1); color:#fff; border-color:var(--ink-1); }
+.casebtn:focus-visible{ outline:2px solid var(--jev); outline-offset:2px; }
+.casebtn:disabled{ opacity:.6; cursor:default; }
 
 .duel { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 @media (max-width: 900px){ .duel { grid-template-columns:1fr; } }
-.engine { background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; overflow:hidden; }
+.engine { background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(23,24,28,.04); }
 .ehd { padding:12px 18px; display:flex; align-items:center; justify-content:space-between; border-bottom:0.5px solid #eceef1; }
 .ehd .nm { font-size:14px; font-weight:500; display:flex; align-items:center; gap:9px; }
 .dot { width:9px; height:9px; border-radius:50%; }
@@ -57,25 +72,32 @@ body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f4f5f
 .msbox .n { font-size:22px; font-weight:500; font-variant-numeric:tabular-nums; }
 .msbox .l { font-size:10.5px; color:#8a8f99; }
 
-.sum { background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; padding:18px 22px; margin-top:16px; }
-.sum h2 { font-size:14px; font-weight:500; margin-bottom:10px; text-align:center; }
+.sum { background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px; padding:18px 22px; margin-top:16px; box-shadow:0 1px 2px rgba(23,24,28,.04); }
+.sum h2 { font-size:14px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px; justify-content:center; }
+.sum h2::before{ content:""; width:7px; height:7px; border-radius:2px; background:var(--jev); flex:0 0 7px; }
 table.st { width:100%; border-collapse:collapse; font-size:12px; }
 table.st th, table.st td { padding:7px 9px; border-bottom:1px solid #eceef1; text-align:left; }
 table.st th { background:#f6f7f9; font-weight:500; }
 .okc { color:#2e7d32; } .badc { color:#c23531; }
 .note { font-size:11px; color:#8a8f99; margin-top:8px; }
 .ctrl { display:flex; justify-content:center; margin-top:14px; }
-.btn { border:none; background:#0f6e56; color:#fff; border-radius:9px; padding:10px 30px; font-size:13.5px; cursor:pointer; }
-.btn:disabled { opacity:.5; cursor:not-allowed; }
+.btn { font-family:inherit; font-size:12px; cursor:pointer; background:var(--jev); color:#fff; border:1px solid var(--jev); border-radius:8px; padding:6px 13px; font-weight:600; transition:border-color .15s, box-shadow .15s, background .15s, color .15s; }
+.btn:hover { background:#0c6650; color:#fff; border-color:#0c6650; }
+.btn:focus-visible{ outline:2px solid var(--jev); outline-offset:2px; }
+.btn.dark{ background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.25); color:#fff; }
+.btn.dark:hover{ background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.45); color:#fff; }
+.btn.dark:focus-visible{ outline-color:#fff; }
+.btn:disabled { opacity:.6; cursor:default; }
 </style>
 </head>
 <body>
-<div class="stage">
-  <div class="hd">
-    <h1>双引擎实时运行对比</h1>
-    <p>同一条消息，两种引擎内部状态全展开 —— 左：Jev noul 阵列并行判断｜右：GLM-5.3-Flash 逐 token 生成结构化 JSON</p>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">双引擎实时运行对比<span class="sub">同一条消息 · Jev noul 阵列并行判断 vs GLM-5.3-Flash 逐 token 生成</span></span>
   </div>
-
+</header>
+<div class="stage">
   <div class="casebar" id="casebar"></div>
 
   <div class="duel">
@@ -104,17 +126,17 @@ table.st th { background:#f6f7f9; font-weight:500; }
   <div class="ctrl"><button class="btn" id="go" onclick="run()">▶ 同时开跑</button></div>
 
   <div class="sum">
-    <h2>运行机制对比（为什么快慢差 8 倍，但都对）</h2>
+    <h2>运行机制对比（为什么快 3 倍多，但都对）</h2>
     <table class="st">
       <tr><th>维度</th><th>Jev noul 阵列</th><th>GLM-5.3-Flash</th></tr>
       <tr><td>内部机制</td><td>单次前向：5 个问题共享一份 KV 缓存，直接读每个判断的 logit 概率，不生成任何文字</td><td>自回归：逐 token 生成 JSON 文本，每个 token 都要完整跑一遍解码循环</td></tr>
       <tr><td>5 个判断的代价</td><td>共享 state 缓存，只增量加载各问题指令（1 次请求）</td><td>所有判断写进一段 JSON，输出 token 数 ≈ 5 个判断的总和</td></tr>
-      <tr><td>延迟</td><td class="okc">~120ms 端到端</td><td>~900-1100ms 端到端</td></tr>
+      <tr><td>延迟</td><td class="okc">~220-320ms 端到端（实测）</td><td>~900-1100ms 端到端</td></tr>
       <tr><td>准确率（12条实测）</td><td class="okc">83%（模糊样本升级）</td><td class="okc">~100%（同题基线）</td></tr>
       <tr><td>成本</td><td class="okc">限时免费</td><td>约 ¥0.001/条</td></tr>
       <tr><td>分工定位</td><td class="okc">第一道毫秒级探针：高置信直接路由</td><td>模糊样本复核 + 涉诈终审 + 生成解释</td></tr>
     </table>
-    <div class="note">Jev 概率值为真实 API 返回（2026-09-27 实测，用户 Key）；GLM 侧为运行过程可视化回放，概率/JSON 为同题基线演示值，接真实 Key 后可替换为实时调用。</div>
+    <div class="note">Jev 概率值为真实 API 返回（2026-11-19 实测，经同源代理 BUILTIN Key）；GLM 侧为运行过程可视化回放，概率/JSON 为同题基线演示值，接真实 Key 后可替换为实时调用。</div>
   </div>
 </div>
 
@@ -128,28 +150,28 @@ var PROBES = [
 ];
 var CASES = [
   { t:"刚才有个陌生电话让我把钱转到安全账户",
-    jev:{transfer:0.91, wealth:0.40, account:0.51, loss_fraud:0.63, complaint:0.81}, jms:22,
+    jev:{transfer:0.68, wealth:0.01, account:0.02, loss_fraud:0.98, complaint:0.54}, jms:234,
     glm:{transfer:0.03, wealth:0.01, account:0.02, loss_fraud:0.94, complaint:0.00}, gms:980,
     jroute:"escalate", groute:"block",
-    verdictJ:"top1 transfer(0.91) 与次高差值不足，且命中涉诈词表 → 升级 LLM",
+    verdictJ:"loss_fraud 0.98 领先 0.30 达标，但命中涉诈词表 → 强制升级 LLM 终审",
     verdictG:"loss_fraud 0.94，识别为冒充公检法/安全账户电诈话术 → 阻断并启动劝阻" },
   { t:"我的银行卡丢了！赶紧帮我挂失冻结",
-    jev:{transfer:0.24, wealth:0.04, account:0.86, loss_fraud:0.91, complaint:0.82}, jms:19,
+    jev:{transfer:0.03, wealth:0.02, account:0.17, loss_fraud:0.99, complaint:0.02}, jms:319,
     glm:{transfer:0.01, wealth:0.00, account:0.05, loss_fraud:0.92, complaint:0.02}, gms:920,
     jroute:"go", groute:"block",
-    verdictJ:"loss_fraud 0.91 领先明显 → 直接路由挂失止付队列",
+    verdictJ:"loss_fraud 0.99 领先明显 → 直接路由挂失止付队列",
     verdictG:"loss_fraud 0.92 → 挂失止付，附理由：卡片丢失+紧急冻结诉求" },
   { t:"帮我给张三转五千块钱，他手机号是138xxxx",
-    jev:{transfer:0.84, wealth:0.12, account:0.10, loss_fraud:0.56, complaint:0.76}, jms:18,
+    jev:{transfer:0.99, wealth:0.02, account:0.05, loss_fraud:0.02, complaint:0.01}, jms:256,
     glm:{transfer:0.95, wealth:0.01, account:0.01, loss_fraud:0.02, complaint:0.01}, gms:890,
     jroute:"go", groute:"block",
-    verdictJ:"transfer 0.84 → 直接路由转账队列",
+    verdictJ:"transfer 0.99 → 直接路由转账队列",
     verdictG:"transfer 0.95 → 转账汇款，收款人信息完整可直接进工单" },
   { t:"密码输错三次被锁了，账户是不是有问题",
-    jev:{transfer:0.02, wealth:0.21, account:0.89, loss_fraud:0.56, complaint:0.56}, jms:20,
+    jev:{transfer:0.01, wealth:0.01, account:0.98, loss_fraud:0.07, complaint:0.44}, jms:257,
     glm:{transfer:0.00, wealth:0.01, account:0.93, loss_fraud:0.04, complaint:0.02}, gms:905,
     jroute:"go", groute:"block",
-    verdictJ:"account 0.89 → 直接路由账户查询队列",
+    verdictJ:"account 0.98 → 直接路由账户查询队列",
     verdictG:"account 0.93 → 账户问题，密码锁定属账户安全类工单" }
 ];
 var cur = 0, timers = [];
@@ -218,7 +240,7 @@ function run(){
   var raw = '{"model":"bocha-jev-v1","answers":{';
   PROBES.forEach(function(p, i){
     T(function(){
-      raw += '"' + p.key + '":{"noul":' + c.jev[p.key].toFixed(2) + "}" + (i < 4 ? "," : "}}");
+      raw += '"' + p.key + '":{"noul":' + c.jev[p.key].toFixed(2) + "}" + (i < PROBES.length - 1 ? "," : "}}");
       el("j_raw").textContent = raw;
     }, 400 + i * 120);
   });

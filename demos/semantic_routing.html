@@ -8,8 +8,8 @@
 <style>
 :root{
   --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
-  --line-1:#e4e6ea; --line-2:#eef0f2;
-  --bg:#f3f4f7; --card:#ffffff;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
   --jev:#0e7a5f; --jev-bg:#ecf6f2;
   --glm:#5b4fc7; --glm-bg:#efedfb;
   --amber:#b45309; --amber-bg:#fdf3e0;
@@ -29,30 +29,46 @@ body{
   display:flex; gap:14px; align-items:center;
 }
 #netbar b{color:var(--jev); font-weight:600;}
-/* ---- 顶栏 ---- */
-.hd{padding:16px 18px 4px; display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;}
-.hd h1{font-size:19px; font-weight:700;}
-.hd .grad{background:linear-gradient(90deg,var(--jev),var(--glm)); -webkit-background-clip:text; background-clip:text; color:transparent;}
-.hd .sub{font-size:12px; color:var(--ink-3);}
-.hd .btns{margin-left:auto; display:flex; gap:8px;}
+/* ---- 顶栏（深墨色品牌条） ---- */
+.topbar{
+  background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+  color:#fff; padding:13px 20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+.brand-mark{
+  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+  background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
+.topbar .btns{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;}
 .btn{
   font-family:inherit; font-size:12px; cursor:pointer;
   background:var(--card); color:var(--ink-2);
-  border:0.5px solid var(--line-1); border-radius:8px; padding:6px 12px;
-  transition:border-color .15s, box-shadow .15s;
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
 }
-.btn:hover{border-color:var(--jev); box-shadow:0 1px 6px rgba(14,122,95,.12);}
+.btn:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.btn:focus-visible{outline:2px solid var(--jev); outline-offset:2px;}
 .btn.primary{background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600;}
-.btn.primary:hover{background:#0c6650;}
+.btn.primary:hover{background:#0c6650; color:#fff; border-color:#0c6650;}
+.btn.primary:active{transform:translateY(1px);}
+.btn.dark{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.25); color:#fff;}
+.btn.dark:hover{background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.45); color:#fff;}
+.btn.dark:focus-visible{outline-color:#fff;}
+.btn:disabled{opacity:.6; cursor:default;}
 /* ---- 布局 ---- */
 .main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:12px; padding:12px 18px;}
 @media (max-width:1020px){ .main{grid-template-columns:1fr;} }
 .colL,.colR{display:flex; flex-direction:column; gap:12px; min-width:0;}
 .card{
-  background:var(--card); border:0.5px solid var(--line-1); border-radius:10px;
-  padding:14px 16px; box-shadow:0 1px 3px rgba(23,24,28,.03);
+  background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px;
+  padding:15px 17px; box-shadow:0 1px 2px rgba(23,24,28,.04);
 }
 .card h2{font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.card h2::before{content:""; width:7px; height:7px; border-radius:2px; background:var(--jev); flex:0 0 7px;}
 .card h2 .n{font-size:10px; color:var(--ink-4); font-weight:400;}
 /* ---- 输入卡 ---- */
 #q{
@@ -109,6 +125,21 @@ body{
   color:var(--ink-2); font-family:Consolas,Menlo,monospace;
 }
 .pl-arrow{font-size:11px; color:var(--ink-4); margin-left:14px; line-height:1;}
+/* ---- 最终结果节点（L4 之后的结果收口） ---- */
+.pl.final{border-radius:0 10px 10px 0; padding-right:12px;}
+.pl.final.hit{background:var(--jev-bg);}
+.pl.final.skip{background:var(--amber-bg);}
+.pl.final .pl-name{font-weight:700;}
+.pl.final .pl-tag{background:var(--ink-1); color:#fff; border-color:var(--ink-1);}
+.final-body{display:flex; flex-direction:column; gap:7px; font-size:12px;}
+.f-row{display:flex; gap:10px; align-items:baseline; flex-wrap:wrap;}
+.f-k{flex:0 0 60px; font-size:11px; color:var(--ink-4); white-space:nowrap;}
+.f-act{font-size:12px; font-weight:700; padding:2px 12px; border-radius:6px; display:inline-block;}
+.f-act.go{background:var(--jev); color:#fff;}
+.f-act.review{background:var(--amber); color:#fff;}
+.f-v{color:var(--ink-1); font-weight:600;}
+.f-sub{color:var(--ink-3); font-size:11px;}
+.f-why{flex:1 1 200px; font-size:11px; color:var(--ink-3); background:rgba(255,255,255,.75); border:0.5px dashed var(--line-1); border-radius:6px; padding:6px 9px; line-height:1.6;}
 /* ---- 决策卡 ---- */
 #dec_empty{color:var(--ink-4); font-size:12px; padding:14px 0; text-align:center;}
 .dec-cat{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
@@ -175,19 +206,18 @@ body{
 </style>
 </head>
 <body>
-<div id="netbar">通道检测中…</div>
-
-<div class="hd">
-  <div>
-    <h1>语义路由<span class="grad">测试台</span></h1>
-    <div class="sub">Gate → Cache → Rules → Jev → Decision · 14 类金融任务 · 分档选模型</div>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">语义路由测试台<span class="sub">L0 Gate → L1 Cache → L2 Rules → L3 Jev → L4 Decision · 14 类金融任务 · 分档选模型</span></span>
   </div>
   <div class="btns">
-    <button class="btn" onclick="selfTest()">连接自检</button>
-    <button class="btn" onclick="openCfg()">⚙ Key 设置</button>
-    <button class="btn" onclick="clearAll()">清空会话</button>
+    <button class="btn dark" onclick="selfTest()">连接自检</button>
+    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="clearAll()">清空会话</button>
   </div>
-</div>
+</header>
+<div id="netbar">通道检测中…</div>
 
 <div class="main">
   <div class="colL">
@@ -346,7 +376,7 @@ async function probeChannel(text){
       body:JSON.stringify({model:"bocha-jev-v1",state:{message:text},questions:{probe:{type:"noul",instructions:"连通性探针",criteria:{true:"是",false:"否"}}}})
     });
     var txt=await r.text();
-    var ok=(r.status>=200&&r.status<300)||r.status===401||r.status===403; /* 401/403：通道可达但 Key 无效（占位符场景） */
+    var ok=r.status>=200&&r.status<300; /* 401/403 表示 Key 无效或代理拒绝，不能判为可用 */
     return {ok:ok,code:r.status,ms:Date.now()-t0,raw:txt.slice(0,600)};
   }catch(e){ return {ok:false,code:0,ms:Date.now()-t0,raw:String(e)}; }
 }
@@ -356,7 +386,7 @@ async function selfTest(){
   var p=await probeChannel("连通性自检");
   var nb=document.getElementById("netbar");
   if(p.ok){ nb.innerHTML="通道：<b>"+chanName+"</b> · 自检通过 HTTP "+p.code+" · "+p.ms+"ms · <b style='color:var(--jev)'>可用</b>"; toast("自检通过（"+p.ms+"ms）"); }
-  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+" 自检失败</b> · "+p.raw; toast("自检失败："+p.raw); }
+  else { nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+" 自检失败</b> · HTTP "+p.code+" · "+esc(p.raw); toast("自检失败：HTTP "+p.code); }
 }
 /* ---- 配置模态 ---- */
 function openCfg(){ document.getElementById("cfg_jev").value=CFG.jevKey||""; document.getElementById("mask").classList.add("open"); }
@@ -372,7 +402,7 @@ function clearKey(){
   toast("已清除，走 BUILTIN_JEV 注入");
 }
 /* ---- 输入卡：样例 chips + override 下拉 ---- */
-function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function initInput(){
   var html="";
   CATS.forEach(function(c){ if(c.eg) html+='<button class="chip" onclick="fill(this)" data-eg="'+esc(c.eg)+'">'+c.name+'</button>'; });
@@ -391,16 +421,17 @@ var PIPE=[
  {id:"L1",name:"RouteCache 缓存",brief:"归一化 query LRU · 高风险类与 review 请求不入缓存"},
  {id:"L2",name:"RuleEngine 规则",brief:"强信号捷径（前缀/关键词），只做 shortcut 不否决语义"},
  {id:"L3",name:"JevClassifier 语义",brief:"choice 主判 14 类 + high_risk / needs_long_context 两个 noul 同请求并行"},
- {id:"L4",name:"DecisionEngine 决策",brief:"风险 / 上下文闸门 → 置信分层（τ 0.8/0.55）→ 兜底，请求永不失败"}
+ {id:"L4",name:"DecisionEngine 决策",brief:"风险 / 上下文闸门 → 置信分层（τ 0.8/0.55）→ 兜底，请求永不失败"},
+ {id:"OUT",name:"最终结果",final:true,brief:"路由出口：执行动作 + 目标通道 + 判定依据摘要"}
 ];
 function renderPipe(){
   var h="";
   PIPE.forEach(function(p,i){
-    h+='<div class="pl pass" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
+    h+='<div class="pl '+(p.final?"final ":"")+'pass" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
       +'<span class="pl-tag">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
       +'<span class="pl-st pass" id="pst_'+i+'">待命</span><span class="pl-ms" id="pms_'+i+'"></span></div>'
       +'<p class="pl-brief">'+p.brief+'</p>'
-      +'<div class="pl-detail" id="pd_'+i+'"><pre>—</pre></div></div>';
+      +'<div class="pl-detail" id="pd_'+i+'">'+(p.final?'<div class="final-body" id="fbody">—</div>':'<pre>—</pre>')+'</div></div>';
     if(i<PIPE.length-1) h+='<div class="pl-arrow">▼</div>';
   });
   document.getElementById("pipe").innerHTML=h;
@@ -408,7 +439,7 @@ function renderPipe(){
 function toggleDetail(i){ document.getElementById("pd_"+i).classList.toggle("open"); }
 function setPl(i,state,st,ms,brief,detail){
   var el=document.getElementById("pl_"+i);
-  el.className="pl "+state;
+  el.className="pl"+(PIPE[i]&&PIPE[i].final?" final":"")+" "+state;
   var stEl=document.getElementById("pst_"+i);
   stEl.className="pl-st "+state; stEl.textContent=st;
   document.getElementById("pms_"+i).textContent=(ms!=null)?(ms+" ms"):"";
@@ -420,6 +451,7 @@ function resetPipe(){
     setPl(i,"pass","待命",null,null,null);
     document.getElementById("pd_"+i).classList.remove("open");
   });
+  var fb=document.getElementById("fbody"); if(fb) fb.innerHTML="—";
 }
 /* ---- L0 / L1 / L2（前端演示实现，对应 §5.6 routes.json） ---- */
 var cacheMap=new Map(), CACHE_MAX=256;
@@ -490,19 +522,31 @@ async function callJev(q){
     state:{message:q.length>TH.state_max_chars?q.slice(0,TH.state_max_chars):q},
     questions:buildQuestions()
   };
+  /* 健壮性：20s 超时中止 + 状态码先行（避免上游挂起时永久卡「调用中」） */
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null;
+  var timer=ac?setTimeout(function(){ try{ ac.abort(); }catch(e){} },20000):null;
   try{
     var r=await fetch(chanBase||PROXY_URL,{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+cfg()},
-      body:JSON.stringify(body)
+      body:JSON.stringify(body),
+      signal:ac?ac.signal:undefined
     });
+    if(!(r.status>=200&&r.status<300)){
+      var etxt="";
+      try{ etxt=(await r.text()).slice(0,200); }catch(_e){}
+      return {ok:false,err:"HTTP "+r.status+" "+etxt,ms:Date.now()-t0};
+    }
     var data=await r.json();
     var ms=(data.metadata&&data.metadata.inference_ms)||Date.now()-t0;
-    if(!(r.status>=200&&r.status<300)) return {ok:false,err:"HTTP "+r.status+" "+JSON.stringify(data).slice(0,200),ms:Date.now()-t0};
     var a=data.answers||{}, p=parseMain(a.main), hr=parseNoul(a.high_risk), nlc=parseNoul(a.needs_long_context);
     if(!p.category) return {ok:false,err:"响应缺 main.choice key："+JSON.stringify(data).slice(0,200),ms:ms};
     return {ok:true,raw:data,category:p.category,prob_max:p.prob,probs:p.probs,hr:hr,nlc:nlc,ms:ms};
-  }catch(e){ return {ok:false,err:String(e),ms:Date.now()-t0}; }
+  }catch(e){
+    var em=String(e);
+    if(/abort/i.test(em)) em="请求超时（20s 无响应，已中止）";
+    return {ok:false,err:em,ms:Date.now()-t0};
+  }finally{ if(timer) clearTimeout(timer); }
 }
 /* ---- L4 DecisionEngine：闸门 → 置信分层 → 兜底 ---- */
 function upTier(t){
@@ -512,6 +556,7 @@ function upTier(t){
 }
 function applyL4(R,x){
   var path=[], cat=x.category||"default", c=CATMAP[cat]||CATMAP.default;
+  if(R.layer==="fallback") path.push("⚠ 异常兜底：L3 语义调用失败（密钥失效或上游不可用）→ default 档，非语义判定结果");
   var tier=x.tierOverride||c.tier, review=false;
   if(x.tierOverride){
     path.push("L0 override 显式决策 → 档位 "+tier+"（显式意志优先，免闸门）");
@@ -548,7 +593,27 @@ function applyL4(R,x){
   setPl(4, review?"skip":"hit", review?"强制复核":"出决策", total-R.jev_ms,
     "→ "+c.name+"（"+tier+"）"+(review?" · review_required":"")+(R.use_private?" · 私有化通道":""),
     "决策路径：\n"+path.map(function(s,i){ return (i+1)+". "+s; }).join("\n"));
-  renderDecision(dec); renderProbs(dec); renderSig(dec); emitLog(R,dec,total);
+  renderDecision(dec); renderProbs(dec); renderSig(dec); setFinal(dec); emitLog(R,dec,total);
+}
+/* ---- OUT 最终结果节点：L4 决策之后的收口（明确本次路由的落点） ---- */
+function setFinal(d){
+  var i=PIPE.length-1, review=d.review_required;
+  var act=review?"人工复核通过后执行":"立即执行（直通）";
+  setPl(i, review?"skip":"hit", review?"复核后执行":"直通执行", null,
+    act+(d.use_private?" · 私有化通道":"")+" · "+TIERS[d.tier].channel);
+  var why=d.path.slice(0,3).join("；");
+  if(d.path.length>3) why+="；…（完整决策路径见 L4 明细）";
+  var c=CATMAP[d.category]||CATMAP.default;
+  document.getElementById("fbody").innerHTML=
+    '<div class="f-row"><span class="f-k">执行动作</span><span class="f-act '+(review?"review":"go")+'">'+act+'</span>'
+    +(d.use_private?'<span class="badge b-priv">私有化通道</span>':"")+'</div>'
+    +'<div class="f-row"><span class="f-k">目标通道</span><span class="f-v">'+esc(TIERS[d.tier].name)+'（'+esc(d.tier)+'）</span>'
+    +'<span class="f-sub">'+esc(d.model)+' · '+esc(d.channel)+'</span></div>'
+    +'<div class="f-row"><span class="f-k">任务类别</span><span class="f-v">'+esc(c.name)+'</span>'
+    +(d.prob!=null?'<span class="f-sub">prob_max '+fmt(d.prob)+'</span>':'<span class="f-sub">非语义路径，无概率</span>')+'</div>'
+    +'<div class="f-row"><span class="f-k">附加约束</span><span class="f-sub">'+(review?"人工复核 · 禁缓存":"无")+'</span></div>'
+    +'<div class="f-row"><span class="f-k">判定依据</span><div class="f-why">'+esc(why)+'</div></div>';
+  document.getElementById("pd_"+i).classList.add("open");
 }
 /* ---- 右侧渲染 ---- */
 function renderDecision(d){
@@ -572,7 +637,7 @@ function renderProbs(d){
   var mx=d.probs[ks[0]]||1, h="";
   ks.forEach(function(k,i){
     var pct=Math.round(d.probs[k]/mx*100), name=(CATMAP[k]||{}).name||k;
-    h+='<div class="pr'+(i===0?" top":"")+'"><span class="k" title="'+k+'">'+name+'</span>'
+    h+='<div class="pr'+(i===0?" top":"")+'"><span class="k" title="'+esc(k)+'">'+esc(name)+'</span>'
      +'<div class="bar"><i style="width:'+pct+'%"></i></div><span class="v">'+fmt(d.probs[k])+'</span></div>';
   });
   document.getElementById("probs").innerHTML=h;
@@ -664,7 +729,10 @@ async function route(){
     setPl(3,"pass","调用中",null,"state "+q.length+" 字符 · choice + 2×noul 并行","");
     var jr=await callJev(q);
     if(!jr.ok){
-      setPl(3,"err","失败",jr.ms,jr.err,"");
+      var em=jr.err||"未知错误";
+      if(/401|invalid API key/i.test(em)) em+="\n→ Jev 密钥失效：点右上角 ⚙ Key 设置 更换后重试";
+      setPl(3,"err","失败",jr.ms,em,"");
+      toast("L3 语义调用失败，已按 default 档异常兜底");
       R.layer="fallback";
       applyL4(R,{category:"default",prob:null,probs:null,hr:null,nlc:null});
       return;
@@ -696,7 +764,7 @@ function clearAll(){
 setChannel(); initInput(); renderPipe();
 probeChannel("连通性自检").then(function(p){
   if(p.ok) document.getElementById("netbar").innerHTML="通道：<b>"+chanName+"</b> · 自检通过 HTTP "+p.code+" · "+p.ms+"ms";
-  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+" 暂不可达</b>（可点「连接自检」重试）";
+  else document.getElementById("netbar").innerHTML="通道：<b style='color:var(--amber)'>"+chanName+" 不可用（HTTP "+p.code+"）</b> · 可点「连接自检」重试";
 });
 </script>
 </body>

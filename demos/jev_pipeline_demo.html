@@ -5,82 +5,120 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Jev 决策流水线 · 生动演示</title>
 <style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+}
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f6f7f9; color:#1f2329; min-height:100vh; padding:28px 16px 60px; }
-.stage { max-width:1080px; margin:0 auto; }
+body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink-1); min-height:100vh; }
+/* ---- 顶栏（深墨色品牌条） ---- */
+.topbar{
+  background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+  color:#fff; padding:13px 20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+.brand-mark{
+  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+  background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
+
+.stage { max-width:1080px; margin:0 auto; padding:28px 16px 60px; }
 .hd { text-align:center; margin-bottom:6px; }
 .hd h1 { font-size:20px; font-weight:500; letter-spacing:0.5px; }
-.hd p { font-size:13px; color:#6b7078; margin-top:4px; }
+.hd p { font-size:13px; color:var(--ink-3); margin-top:4px; }
 
 .pipline { display:flex; align-items:stretch; gap:0; margin:26px 0 18px; }
-.node { flex:1; background:#fff; border:0.5px solid #d8dbe0; border-radius:14px; padding:16px 14px 14px; position:relative; transition:all .25s; min-width:0; }
-.node.active { border-color:#0f6e56; background:#f3faf7; transform:translateY(-3px); }
+.node { flex:1; background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px; padding:16px 14px 14px; position:relative; transition:all .25s; min-width:0; box-shadow:0 1px 2px rgba(23,24,28,.04); }
+.node.active { border-color:var(--jev); background:var(--jev-bg); transform:translateY(-3px); }
 .node.done { border-color:#b7e2d2; }
-.node .idx { width:26px; height:26px; border-radius:50%; background:#eef0f3; color:#6b7078; font-size:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; font-weight:500; transition:all .2s; }
-.node.active .idx { background:#0f6e56; color:#fff; }
+.node .idx { width:26px; height:26px; border-radius:50%; background:var(--line-2); color:var(--ink-3); font-size:12px; display:flex; align-items:center; justify-content:center; margin:0 auto 8px; font-weight:500; transition:all .2s; }
+.node.active .idx { background:var(--jev); color:#fff; }
 .node.done .idx { background:#c9eadb; color:#085041; }
 .node h3 { font-size:13px; font-weight:500; text-align:center; margin-bottom:3px; }
-.node .d { font-size:11.5px; color:#8a8f99; text-align:center; line-height:1.45; }
+.node .d { font-size:11.5px; color:var(--ink-4); text-align:center; line-height:1.45; }
 .conn { width:44px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .conn svg { width:100%; overflow:visible; }
-.conn .line { stroke:#c4c8cf; stroke-width:1.6; stroke-dasharray:5 4; fill:none; }
-.node.active + .conn .line { stroke:#0f6e56; animation:dash .7s linear infinite; }
+.conn .line { stroke:var(--ink-4); stroke-width:1.6; stroke-dasharray:5 4; fill:none; }
+.node.active + .conn .line { stroke:var(--jev); animation:dash .7s linear infinite; }
 @keyframes dash { to { stroke-dashoffset:-9; } }
 @media (prefers-reduced-motion: reduce) { .conn .line { animation:none; } }
 
-.screen { background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; padding:22px 24px; margin-top:18px; }
-.screen h2 { font-size:15px; font-weight:500; margin-bottom:2px; }
-.screen .sub2 { font-size:12px; color:#8a8f99; margin-bottom:16px; }
-.chatbox { background:#f6f7f9; border-radius:12px; padding:14px 16px; font-size:14px; line-height:1.65; min-height:58px; position:relative; }
-.chatbox .cursor { display:inline-block; width:2px; height:16px; background:#0f6e56; vertical-align:-2px; margin-left:2px; animation:blink .8s step-end infinite; }
+.screen { background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px; padding:22px 24px; margin-top:18px; box-shadow:0 1px 2px rgba(23,24,28,.04); }
+.screen h2 { font-size:15px; font-weight:600; margin-bottom:2px; display:flex; align-items:center; gap:8px; }
+.screen h2::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--jev); flex:0 0 7px; }
+.screen .sub2 { font-size:12px; color:var(--ink-4); margin-bottom:16px; }
+.chatbox { background:var(--bg); border-radius:12px; padding:14px 16px; font-size:14px; line-height:1.65; min-height:58px; position:relative; }
+.chatbox .cursor { display:inline-block; width:2px; height:16px; background:var(--jev); vertical-align:-2px; margin-left:2px; animation:blink .8s step-end infinite; }
 @keyframes blink { 50% { opacity:0; } }
-.typing { font-size:11px; color:#0f6e56; margin-top:6px; height:14px; }
+.typing { font-size:11px; color:var(--jev); margin-top:6px; height:14px; }
 
 .probes { display:flex; flex-direction:column; gap:9px; margin-top:4px; }
 .probe { display:flex; align-items:center; gap:10px; opacity:0; transform:translateX(-14px); transition:all .4s; }
 .probe.in { opacity:1; transform:none; }
-.probe .q { flex:0 0 220px; font-size:12px; color:#3b4048; background:#f6f7f9; border-radius:8px; padding:7px 11px; }
-.probe .track { flex:1; height:20px; background:#eef0f3; border-radius:6px; overflow:hidden; }
+.probe .q { flex:0 0 220px; font-size:12px; color:var(--ink-2); background:var(--bg); border-radius:8px; padding:7px 11px; }
+.probe .track { flex:1; height:20px; background:var(--line-2); border-radius:6px; overflow:hidden; }
 .probe .fill { height:100%; width:0%; border-radius:6px; transition:width .55s cubic-bezier(.25,.8,.35,1); }
-.probe .pv { flex:0 0 46px; text-align:right; font-size:12px; font-variant-numeric:tabular-nums; color:#3b4048; }
-.probe.win .fill { background:#1d9e75; }
-.probe.win .pv { color:#0f6e56; font-weight:500; }
-.probe.lose .fill { background:#c9cdd4; }
+.probe .pv { flex:0 0 46px; text-align:right; font-size:12px; font-variant-numeric:tabular-nums; color:var(--ink-2); }
+.probe.win .fill { background:var(--jev); }
+.probe.win .pv { color:var(--jev); font-weight:500; }
+.probe.lose .fill { background:var(--line-1); }
 
 .route { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; }
 .gate { border-radius:12px; padding:14px 20px; text-align:center; flex:1; max-width:300px; opacity:.35; transition:all .3s; transform:scale(.97); }
 .gate.lit { opacity:1; transform:none; }
 .gate .g-t { font-size:14px; font-weight:500; }
 .gate .g-d { font-size:11.5px; margin-top:2px; }
-.gate.go { background:#eaf3de; color:#27500a; }
-.gate.escalate { background:#faeeda; color:#633806; }
+.gate.go { background:var(--jev-bg); color:var(--jev); }
+.gate.escalate { background:var(--amber-bg); color:var(--amber); }
 .verdict { text-align:center; margin-top:16px; font-size:14px; min-height:22px; }
 .verdict b { font-weight:500; }
 
-.latency { text-align:center; margin-top:14px; font-size:12px; color:#8a8f99; font-variant-numeric:tabular-nums; }
-.latency b { color:#0f6e56; font-weight:500; }
+.latency { text-align:center; margin-top:14px; font-size:12px; color:var(--ink-4); font-variant-numeric:tabular-nums; }
+.latency b { color:var(--jev); font-weight:500; }
 
 .ctrl { display:flex; justify-content:center; gap:10px; margin-top:20px; flex-wrap:wrap; }
-.btn { border:0.5px solid #c4c8cf; background:#fff; color:#1f2329; border-radius:9px; padding:9px 22px; font-size:13px; cursor:pointer; transition:all .15s; }
-.btn:hover { border-color:#0f6e56; color:#0f6e56; }
-.btn.pri { background:#0f6e56; border-color:#0f6e56; color:#fff; }
-.btn.pri:hover { background:#0a5540; }
-.btn:disabled { opacity:.45; cursor:not-allowed; }
+.btn {
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
+}
+.btn:hover { border-color:var(--jev); color:var(--jev); background:var(--jev-bg); }
+.btn:focus-visible { outline:2px solid var(--jev); outline-offset:2px; }
+.btn.pri { background:var(--jev); border-color:var(--jev); color:#fff; font-weight:600; }
+.btn.pri:hover { background:#0c6650; color:#fff; border-color:#0c6650; }
+.btn.pri:active { transform:translateY(1px); }
+.btn:disabled { opacity:.6; cursor:default; }
 
 .cases { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:9px; margin-top:10px; }
-.case { border:0.5px solid #d8dbe0; border-radius:10px; padding:9px 12px; font-size:12px; cursor:pointer; transition:all .15s; background:#fff; }
-.case:hover { border-color:#0f6e56; }
-.case.on { border-color:#0f6e56; background:#f3faf7; }
-.case .cv { color:#8a8f99; font-size:11px; margin-top:2px; }
-.arch { margin-top:22px; background:#fff; border:0.5px solid #d8dbe0; border-radius:16px; padding:20px 24px; }
-.arch h2 { font-size:15px; font-weight:500; margin-bottom:14px; text-align:center; }
+.case { border:1px solid var(--line-1); border-radius:10px; padding:9px 12px; font-size:12px; cursor:pointer; transition:all .15s; background:var(--card); }
+.case:hover { border-color:var(--jev); }
+.case.on { border-color:var(--jev); background:var(--jev-bg); }
+.case .cv { color:var(--ink-4); font-size:11px; margin-top:2px; }
+.arch { margin-top:22px; background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px; padding:20px 24px; box-shadow:0 1px 2px rgba(23,24,28,.04); }
+.arch h2 { font-size:15px; font-weight:600; margin-bottom:14px; text-align:center; }
 .flow { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; }
 .fbox { border-radius:10px; padding:10px 16px; font-size:12.5px; text-align:center; }
 .fbox small { display:block; font-size:11px; opacity:.75; margin-top:2px; }
-.farrow { color:#9aa0a9; font-size:15px; }
+.farrow { color:var(--ink-4); font-size:15px; }
 </style>
 </head>
 <body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">Jev 决策流水线<span class="sub">noul 探针阵列 · 5 问并行 → 概率聚合 → 门控升级 · 真实调用数据回放</span></span>
+  </div>
+</header>
 <div class="stage">
   <div class="hd">
     <h1>Jev 决策流水线 · noul 探针阵列</h1>
@@ -115,7 +153,7 @@ body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f6f7f
     <div class="cases" id="cases"></div>
     <div class="ctrl">
       <button class="btn pri" id="playBtn" onclick="play()">▶ 运行流水线</button>
-      <button class="btn" onclick="autoRun()">自动循环演示</button>
+      <button class="btn" id="autoBtn" onclick="autoRun()">自动循环演示</button>
     </div>
   </div>
 
@@ -124,7 +162,7 @@ body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f6f7f
     <div class="flow">
       <div class="fbox" style="background:#eef0f3;">客户消息</div>
       <div class="farrow">→</div>
-      <div class="fbox" style="background:#e1f5ee;color:#085041;">Jev noul 探针阵列<small>127ms · 5问并行 · 免费额度</small></div>
+      <div class="fbox" style="background:#e1f5ee;color:#085041;">Jev noul 探针阵列<small>220-320ms · 5问并行 · 免费额度</small></div>
       <div class="farrow">→</div>
       <div class="fbox" style="background:#eaf3de;color:#27500a;">高置信 → 直接路由<small>~80% 流量</small></div>
       <div class="farrow">/</div>
@@ -145,18 +183,18 @@ var PROBES = [
 ];
 var CASES = [
   { t:"我的银行卡丢了！赶紧帮我挂失冻结", y:"loss_fraud", yn:"挂失止付",
-    p:{transfer:0.24, wealth:0.04, account:0.86, loss_fraud:0.91, complaint:0.82}, ms:131, route:"go" },
+    p:{transfer:0.03, wealth:0.02, account:0.17, loss_fraud:0.99, complaint:0.02}, ms:319, route:"go" },
   { t:"帮我给张三转五千块钱，他手机号是138xxxx", y:"transfer", yn:"转账汇款",
-    p:{transfer:0.84, wealth:0.12, account:0.10, loss_fraud:0.56, complaint:0.76}, ms:118, route:"go" },
+    p:{transfer:0.99, wealth:0.02, account:0.05, loss_fraud:0.02, complaint:0.01}, ms:256, route:"go" },
   { t:"密码输错三次被锁了，账户是不是有问题", y:"account", yn:"账户查询",
-    p:{transfer:0.02, wealth:0.21, account:0.89, loss_fraud:0.56, complaint:0.56}, ms:124, route:"go" },
+    p:{transfer:0.01, wealth:0.01, account:0.98, loss_fraud:0.07, complaint:0.44}, ms:257, route:"go" },
   { t:"刚才有个陌生电话让我把钱转到安全账户", y:"loss_fraud", yn:"挂失止付（诈骗）",
-    p:{transfer:0.91, wealth:0.40, account:0.13, loss_fraud:0.63, complaint:0.81}, ms:129, route:"escalate",
-    note:"top1 transfer(0.91) 与 loss_fraud(0.63) 差距不足且命中涉诈关键词 → 升级 LLM，LLM 识别为典型电诈话术 → 阻断" },
+    p:{transfer:0.68, wealth:0.01, account:0.02, loss_fraud:0.98, complaint:0.54}, ms:234, route:"escalate",
+    note:"top1 loss_fraud(0.98) 领先 0.30 已达标，但命中涉诈关键词 → 规则强制升级 LLM 终审，LLM 识别为典型电诈话术 → 阻断" },
   { t:"你们客服什么态度，我要投诉，让你们领导来", y:"complaint", yn:"投诉纠纷",
-    p:{transfer:0.04, wealth:0.54, account:0.48, loss_fraud:0.61, complaint:0.88}, ms:122, route:"go" },
+    p:{transfer:0.02, wealth:0.01, account:0.03, loss_fraud:0.02, complaint:0.995}, ms:220, route:"go" },
   { t:"定期理财到期了钱会自动回到活期吗", y:"wealth", yn:"理财购买",
-    p:{transfer:0.06, wealth:0.85, account:0.13, loss_fraud:0.26, complaint:0.21}, ms:127, route:"go" }
+    p:{transfer:0.01, wealth:0.96, account:0.19, loss_fraud:0.01, complaint:0.01}, ms:249, route:"go" }
 ];
 var cur = 0, timer = null, timers = [];
 
@@ -253,7 +291,7 @@ function play(){
     el("verdict").innerHTML = (c.route === "escalate" && c.note)
       ? "△ <b>升级复核</b> — " + c.note
       : "✓ 命中意图 <b>" + c.yn + "</b>" + (ok ? "，直接路由到对应业务队列" : "");
-    el("lat").innerHTML = "端到端延迟 <b>" + c.ms + "ms</b> · 单请求 5 问 · bocha-jev-v1 真实返回值（2026-09-27）";
+    el("lat").innerHTML = "端到端延迟 <b>" + c.ms + "ms</b> · 单请求 5 问 · bocha-jev-v1 真实返回值（2026-11-19 经同源代理实测）";
     el("playBtn").disabled = false;
     T(function(){
       el("n4").classList.remove("active"); el("n4").classList.add("done");
@@ -261,14 +299,25 @@ function play(){
   }
 }
 
+var autoOn = false, autoTimer = null;
 function autoRun(){
-  var runNext = function(){
-    cur = (cur + 1) % CASES.length;
-    renderCases();
-    play();
-    timers.push(setTimeout(runNext, 5200));
-  };
-  runNext();
+  autoOn = !autoOn;
+  var btn = el("autoBtn");
+  if (autoOn){
+    btn.textContent = "■ 停止循环";
+    btn.classList.add("pri");
+    var runNext = function(){
+      cur = (cur + 1) % CASES.length;
+      renderCases();
+      play();
+      autoTimer = setTimeout(function(){ if (autoOn) runNext(); }, 5200);
+    };
+    runNext();
+  } else {
+    btn.textContent = "自动循环演示";
+    btn.classList.remove("pri");
+    clearTimeout(autoTimer);
+  }
 }
 
 renderCases();

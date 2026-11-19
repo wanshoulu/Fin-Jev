@@ -8,13 +8,13 @@
 <style>
 /* ============ 设计基座 ============ */
 :root{
-  --ink-1:#16181d; --ink-2:#3e434d; --ink-3:#6f7683; --ink-4:#9aa1ac;
-  --line-1:#e5e8ee; --line-2:#eef0f4;
-  --bg:#f3f4f7; --card:#ffffff;
-  --jev:#0e7a5f; --jev-bg:#e9f6f0; --jev-line:#0e7a5f;
-  --glm:#5b4fc7; --glm-bg:#efedfc;
-  --amber:#b45309; --amber-bg:#fdf3e2; --amber-line:#d97706;
-  --red:#c23531; --red-bg:#fdf1f1;
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2; --jev-line:#0e7a5f;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0; --amber-line:#d97706;
+  --red:#b91c1c; --red-bg:#fdeaea;
   --rail:#d3d8e0;
   --shadow-1:0 1px 2px rgba(22,26,34,.05), 0 0 0 0 transparent;
   --shadow-2:0 1px 2px rgba(22,26,34,.05), 0 6px 20px -8px rgba(22,26,34,.1);
@@ -48,25 +48,36 @@ body{
 .netbar.bad::before{ content:""; width:7px; height:7px; border-radius:50%; background:var(--red); box-shadow:0 0 0 3px rgba(194,53,49,.14); }
 .netbar.wait{ background:#fff; color:var(--ink-3); border-color:var(--line-1); }
 .netbar.wait::before{ content:""; width:7px; height:7px; border-radius:50%; background:#c2c8d2; box-shadow:0 0 0 3px rgba(160,168,180,.14); }
-.hd { display:flex; align-items:flex-end; justify-content:space-between; margin:4px 0 18px; flex-wrap:wrap; gap:12px; }
-.hd .ttl { font-size:22px; font-weight:700; letter-spacing:.2px; display:flex; align-items:center; gap:10px; }
-.hd .ttl .vs-tag{
-  font-size:10.5px; font-weight:600; letter-spacing:1.2px; color:#fff;
-  background:linear-gradient(90deg,var(--jev),var(--glm));
-  border-radius:99px; padding:3.5px 11px; transform:translateY(-2px);
-  box-shadow:0 2px 8px -2px rgba(91,79,199,.45);
+/* ---- 顶栏（深墨色品牌条） ---- */
+.topbar{background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);color:#fff;padding:13px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:11px;min-width:0;flex-wrap:wrap;}
+.brand-mark{width:24px;height:24px;border-radius:7px;flex:0 0 24px;background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);box-shadow:0 1px 4px rgba(0,0,0,.35);}
+.brand-name{font-size:15px;font-weight:700;letter-spacing:.01em;white-space:nowrap;}
+.brand-name .sub{font-size:11px;color:rgba(255,255,255,.55);font-weight:400;margin-left:10px;letter-spacing:0;}
+.topbar .btns{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;}
+.btn{
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
 }
-.hd .sub { font-size:12.5px; color:var(--ink-3); margin-top:6px; }
-.hbtns { display:flex; gap:8px; }
+.btn:hover{border-color:var(--jev); color:var(--jev); background:var(--jev-bg);}
+.btn:focus-visible{outline:2px solid var(--jev); outline-offset:2px;}
+.btn.dark{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.25); color:#fff;}
+.btn.dark:hover{background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.45); color:#fff;}
+.btn.dark:focus-visible{outline-color:#fff;}
+.btn:disabled{opacity:.6; cursor:default;}
 .hbtn{
-  border:0.5px solid var(--line-1); background:#fff; border-radius:9px;
-  padding:7px 14px; font-size:12.5px; cursor:pointer; color:var(--ink-2);
-  transition:all .15s; font-weight:500;
-  box-shadow:var(--shadow-1);
+  font-family:inherit; font-size:12px; cursor:pointer;
+  background:var(--card); color:var(--ink-2);
+  border:1px solid var(--line-1); border-radius:8px; padding:6px 13px;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
 }
-.hbtn:hover { border-color:var(--jev); color:var(--jev); transform:translateY(-1px); box-shadow:var(--shadow-2); }
-.hbtn.pri { background:var(--ink-1); color:#fff; border-color:var(--ink-1); }
-.hbtn.pri:hover { background:#000; color:#fff; }
+.hbtn:hover { border-color:var(--jev); color:var(--jev); background:var(--jev-bg); }
+.hbtn:focus-visible{ outline:2px solid var(--jev); outline-offset:2px; }
+.hbtn:disabled{ opacity:.6; cursor:default; }
+.hbtn.pri { background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600; }
+.hbtn.pri:hover { background:#0c6650; color:#fff; border-color:#0c6650; }
 
 /* ============ 主布局 ============ */
 .main { display:grid; grid-template-columns:minmax(0,1.9fr) minmax(384px,1fr); gap:20px; align-items:start; }
@@ -74,9 +85,9 @@ body{
 
 /* ============ 对话区 ============ */
 .chat{
-  background:var(--card); border:0.5px solid var(--line-1); border-radius:16px;
+  background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px;
   display:flex; flex-direction:column; height:calc(100vh - 200px); min-height:560px;
-  box-shadow:var(--shadow-2);
+  box-shadow:0 1px 2px rgba(23,24,28,.04);
   overflow:hidden;
 }
 .chat-hd{
@@ -102,10 +113,10 @@ body{
 
 /* ---- 引擎卡片 ---- */
 .card{
-  border:0.5px solid var(--line-1); border-radius:14px; margin:8px 0;
-  padding:11px 14px 10px; font-size:12.5px; background:#fff;
+  border:1px solid rgba(23,24,28,.07); border-radius:12px; margin:8px 0;
+  padding:11px 14px 10px; font-size:12.5px; background:var(--card);
   transition:box-shadow .2s;
-  box-shadow:var(--shadow-1);
+  box-shadow:0 1px 2px rgba(23,24,28,.04);
 }
 .card.jev { border-top:2.5px solid var(--jev); }
 .card.glm { border-top:2.5px solid var(--glm); }
@@ -200,10 +211,12 @@ body{
 /* ---- 快捷输入 ---- */
 .chips { display:flex; gap:6px; flex-wrap:wrap; padding:10px 16px 6px; border-top:0.5px solid var(--line-2); }
 .chip{
-  border:0.5px solid var(--line-1); background:#fafbfd; border-radius:99px;
-  padding:4.5px 12px; font-size:11.5px; color:var(--ink-2); cursor:pointer; transition:all .15s;
+  border:0.5px solid var(--line-1); background:var(--card); border-radius:99px;
+  padding:4.5px 12px; font-size:11.5px; color:var(--ink-2); cursor:pointer;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
 }
 .chip:hover { border-color:var(--jev); color:var(--jev); background:var(--jev-bg); }
+.chip:focus-visible{ outline:2px solid var(--jev); outline-offset:2px; }
 .inbar { display:flex; gap:9px; padding:10px 16px 15px; }
 .inbar input{
   flex:1; border:0.5px solid #cfd4dc; border-radius:11px; padding:11px 16px;
@@ -211,12 +224,13 @@ body{
 }
 .inbar input:focus { border-color:var(--jev); box-shadow:0 0 0 3px rgba(14,122,95,.12); }
 .send{
-  border:none; background:var(--ink-1); color:#fff; border-radius:11px;
-  padding:0 24px; font-size:13px; font-weight:500; cursor:pointer; transition:all .15s;
-  box-shadow:0 2px 6px -2px rgba(22,26,34,.4);
+  font-family:inherit; background:var(--jev); color:#fff; border:1px solid var(--jev); border-radius:8px;
+  padding:0 24px; font-size:12px; font-weight:600; cursor:pointer;
+  transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
 }
-.send:hover { background:#000; transform:translateY(-1px); }
-.send:disabled { opacity:.45; cursor:not-allowed; transform:none; }
+.send:hover { background:#0c6650; color:#fff; border-color:#0c6650; }
+.send:focus-visible { outline:2px solid var(--jev); outline-offset:2px; }
+.send:disabled { opacity:.6; cursor:default; }
 
 /* ============ 右侧面板 ============ */
 .side { display:flex; flex-direction:column; gap:14px; }
@@ -340,8 +354,8 @@ body{
   50%{ box-shadow:0 0 0 4px var(--card), 0 0 0 9px rgba(180,83,9,.06); }
 }
 .panel{
-  background:var(--card); border:0.5px solid var(--line-1); border-radius:16px;
-  padding:15px 17px; box-shadow:var(--shadow-2);
+  background:var(--card); border:1px solid rgba(23,24,28,.07); border-radius:12px;
+  padding:15px 17px; box-shadow:0 1px 2px rgba(23,24,28,.04);
 }
 .panel h3{
   font-size:13px; font-weight:700; margin-bottom:11px;
@@ -390,7 +404,7 @@ body{
 /* ============ 弹层/提示 ============ */
 .mask { display:none; position:fixed; inset:0; background:rgba(23,24,28,.4); z-index:50; align-items:center; justify-content:center; }
 .mask.show { display:flex; }
-.modal { background:#fff; border-radius:16px; padding:22px 24px; width:440px; max-width:92vw; box-shadow:0 12px 40px rgba(20,24,33,.18); }
+.modal { background:var(--card); border-radius:12px; padding:22px 24px; width:440px; max-width:92vw; box-shadow:0 12px 40px rgba(20,24,33,.18); }
 .modal h3 { font-size:15px; font-weight:600; margin-bottom:14px; }
 .modal label { display:block; font-size:12px; color:var(--ink-2); margin:12px 0 5px; font-weight:500; }
 .modal input { width:100%; border:0.5px solid #cfd3d9; border-radius:9px; padding:9px 12px; font-size:12.5px; outline:none; }
@@ -407,19 +421,19 @@ body{
 </style>
 </head>
 <body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">对话式双引擎测试台<span class="sub">Jev noul 阵列 × Qwen3.7-Flash · 流水线各阶段输入输出实时可视</span></span>
+  </div>
+  <div class="btns">
+    <button class="btn dark" onclick="selfTest()">连接自检</button>
+    <button class="btn dark" onclick="openCfg()">⚙ Key 设置</button>
+    <button class="btn dark" onclick="clearChat()">清空会话</button>
+  </div>
+</header>
 <div class="stage">
   <div class="netbar wait" id="netbar">正在探测 Jev 通道…</div>
-  <div class="hd">
-    <div>
-      <div class="ttl">对话式双引擎测试台<span class="vs-tag">Jev × Qwen</span></div>
-      <div class="sub">输入任意客户消息 → 左侧看双引擎回复卡片，右侧查看原始请求 / 响应报文与会话统计</div>
-    </div>
-    <div class="hbtns">
-      <button class="hbtn" onclick="selfTest()">连接自检</button>
-      <button class="hbtn" onclick="openCfg()">⚙ Key 设置</button>
-      <button class="hbtn pri" onclick="clearChat()">清空会话</button>
-    </div>
-  </div>
 
   <div class="main">
     <div class="chat">
@@ -1597,7 +1611,7 @@ function send(text){
       var jTop = jrRef && jrRef.top1;
       var gTop = grRef && grRef.top;
       var agree = jTop && gTop && jTop === gTop;
-      STATS.n++; STATS.ms.push(jrRef.ms);
+      STATS.n++; STATS.ms.push(jrRef ? jrRef.ms : 0); /* Jev 失败时 jrRef 为 null，兜底防 tryFinish 崩溃卡死整页 */
       if (agree) STATS.go++; else STATS.esc++;
       renderStats();
       var jName = jTop ? (nameMap[jTop] || jTop) : "（Jev 失败）";

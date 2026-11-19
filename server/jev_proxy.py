@@ -3,7 +3,7 @@
 jev_proxy.py — 本地一体化服务器（静态页面 + Jev API 同源转发）
 解决浏览器直调 https://jev.bocha.cn 遇到的 CORS / 系统代理拦截问题。
 
-运行:  python jev_proxy.py
+运行:  python server/jev_proxy.py   （仓库根目录执行；平面布局直接 python jev_proxy.py）
 访问:  http://127.0.0.1:8787
 页面与接口同源（无 CORS），转发由 Python 直连完成（绕过系统代理）。
 """
@@ -12,6 +12,8 @@ import mimetypes
 import os
 import subprocess
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -60,10 +62,54 @@ opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 # GLM 转发走系统默认网络（智谱无代理问题时的直连 opener）
 glm_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-ALLOWED_EXT = {".html", ".js", ".css", ".svg", ".png", ".ico", ".json"}
+ALLOWED_EXT = {".html", ".js", ".css", ".svg", ".png", ".ico"}
+# .json 只放行图谱编译产物（防止公网直接下载 jev_key.local.json 等敏感文件）
+ALLOWED_JSON = "probes.compiled.json"
+
+# BUILTIN Key 注入开关：前端无 Key 时发 Bearer BUILTIN_JEV / Bearer BUILTIN 占位符，
+# 服务器替换为本地 Key（公网部署不想开内置 Key 时设 JEV_BUILTIN=0 / GLM_BUILTIN=0）
+BUILTIN_JEV_ENABLED = os.environ.get("JEV_BUILTIN", "1") != "0"
+BUILTIN_GLM_ENABLED = os.environ.get("GLM_BUILTIN", "1") != "0"
+
+# POST body 上限（字节）
+MAX_BODY = 2 * 1024 * 1024
+
+# 固定窗口限流：{路径桶: (窗口内最大次数, 窗口秒)}；/v1/vkb 为前缀桶
+RATE_LIMITS = {
+    "/v1/systemone": (60, 60),
+    "/v1/glm": (30, 60),
+    "/v1/recompile": (2, 60),
+    "/v1/vkb": (60, 60),
+}
+_rate_bucket = {}
 
 
-# Host 白名单：环境变量 JEV_ALLOWED_HOSTS 可扩展（逗号分隔前缀），部署到服务器时加服务器 IP
+def _host_only(h):
+    """取 Host 的纯主机名（去端口；IPv6 形如 [::1]:8787 → ::1）"""
+    h = (h or "").strip().lower()
+    if h.startswith("["):
+        return h[1:h.index("]")] if "]" in h else h
+    return h.split(":")[0]
+
+
+def _rate_ok(bucket, ip):
+    """固定窗口限流；条目数超限时清理过期键防内存膨胀"""
+    now = time.time()
+    n, win = RATE_LIMITS.get(bucket, (60, 60))
+    key = (bucket, ip)
+    ts = [t for t in _rate_bucket.get(key, []) if now - t < win]
+    if len(ts) >= n:
+        _rate_bucket[key] = ts
+        return False
+    ts.append(now)
+    _rate_bucket[key] = ts
+    if len(_rate_bucket) > 5000:
+        for k in [k for k, v in _rate_bucket.items() if not v or now - v[-1] > win]:
+            _rate_bucket.pop(k, None)
+    return True
+
+
+# Host 白名单：环境变量 JEV_ALLOWED_HOSTS 可扩展（逗号分隔主机名，精确匹配），部署到服务器时加服务器 IP
 ALLOWED_HOSTS = tuple(
     h.strip() for h in os.environ.get("JEV_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",") if h.strip()
 )
@@ -71,9 +117,10 @@ ALLOWED_HOSTS = tuple(
 
 class Handler(BaseHTTPRequestHandler):
     def _check_origin(self):
-        """安全加固：默认只允许本地访问，拒绝同网段远程请求；部署服务器时用 JEV_ALLOWED_HOSTS 放行。"""
-        host = self.headers.get("Host", "")
-        if host and not any(host.startswith(h) for h in ALLOWED_HOSTS):
+        """安全加固：默认只允许本地访问；部署服务器时用 JEV_ALLOWED_HOSTS 放行。
+        精确匹配纯主机名（不计端口）——前缀匹配可被 127.0.0.1.evil.com 这类 Host 绕过。"""
+        host = _host_only(self.headers.get("Host"))
+        if host and host not in {_host_only(h) for h in ALLOWED_HOSTS}:
             self.send_response(403)
             self._cors()
             self.end_headers()
@@ -85,6 +132,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("X-Content-Type-Options", "nosniff")
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -96,6 +144,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         # 向量知识库 GET 转发（stats / chunks / documents / export）
         if path.startswith(VKB_PREFIX):
+            if not _rate_ok(VKB_PREFIX.rstrip("/"), self.client_address[0]):
+                self._rate_limited()
+                return
             self._forward_vkb("GET", path[len(VKB_PREFIX):], None)
             return
         if path in ("/", "/index.html"):
@@ -115,7 +166,13 @@ class Handler(BaseHTTPRequestHandler):
                 fname = "probes.compiled.json"
         ext = os.path.splitext(fname)[1].lower()
         fpath = os.path.normpath(os.path.join(ROOT, fname))
-        if ext not in ALLOWED_EXT or not fpath.startswith(ROOT) or not os.path.isfile(fpath):
+        # .json 只放行编译产物（防止公网直接下载 jev_key.local.json 等敏感文件）；
+        # ROOT 前缀比较带 os.sep 收尾，避免 fin-jev-review2 这类同名兄弟目录误放行
+        if ext == ".json" and os.path.basename(fpath) != ALLOWED_JSON:
+            ext = ""  # .json 只放行编译产物，其余 json 视为拒绝
+        inside = fpath == ROOT or fpath.startswith(ROOT + os.sep)
+        ok_ext = ext in ALLOWED_EXT or ext == ".json"  # 走到这里 ".json" 必为编译产物
+        if not ok_ext or not inside or not os.path.isfile(fpath):
             self.send_response(404)
             self._cors()
             self.end_headers()
@@ -131,33 +188,60 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def _too_large(self):
+        self.send_response(413)
+        self._cors()
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"payload too large")
+
+    def _rate_limited(self):
+        self.send_response(429)
+        self._cors()
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"rate limited, slow down")
+
+    def _read_body(self):
+        """读取请求体；超过 MAX_BODY 直接 413 并返回 None。"""
+        length = int(self.headers.get("Content-Length") or 0)
+        if length > MAX_BODY:
+            self._too_large()
+            return None
+        return self.rfile.read(length) if length else b"{}"
+
     def do_POST(self):
         if not self._check_origin(): return
-        if self.path.split("?")[0] == "/v1/recompile":
+        path = self.path.split("?")[0]
+        bucket = path if path in RATE_LIMITS else (VKB_PREFIX.rstrip("/") if path.startswith(VKB_PREFIX) else None)
+        if bucket and not _rate_ok(bucket, self.client_address[0]):
+            self._rate_limited()
+            return
+        if path == "/v1/recompile":
             self._recompile()
             return
-        if self.path.startswith(VKB_PREFIX):
-            length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(length) if length else b"{}"
-            self._forward_vkb("POST", self.path[len(VKB_PREFIX):].split("?")[0], body)
+        if path.startswith(VKB_PREFIX):
+            body = self._read_body()
+            if body is None: return
+            self._forward_vkb("POST", path[len(VKB_PREFIX):], body)
             return
-        if self.path.startswith("/v1/systemone"):
+        if path.startswith("/v1/systemone"):
             target, fwd = API_URL, opener
-        elif self.path.startswith("/v1/glm"):
+        elif path.startswith("/v1/glm"):
             target, fwd = GLM_URL, glm_opener
         else:
             self.send_response(404)
             self._cors()
             self.end_headers()
             return
-        length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(length) if length else b"{}"
+        body = self._read_body()
+        if body is None: return
         auth = self.headers.get("Authorization", "")
-        # GLM 通道：Bearer BUILTIN 表示用服务器内置 Key；其余原样透传
-        if self.path.startswith("/v1/glm") and GLM_KEY and "BUILTIN" in auth:
+        # GLM 通道：Bearer BUILTIN 表示用服务器内置 Key；其余原样透传（GLM_BUILTIN=0 可关闭注入）
+        if path.startswith("/v1/glm") and GLM_KEY and BUILTIN_GLM_ENABLED and "BUILTIN" in auth:
             auth = "Bearer " + GLM_KEY
-        # Jev 通道：前端无 Key 时发 BUILTIN_JEV 占位符，服务器有本地 Key 则替换
-        if self.path.startswith("/v1/systemone") and JEV_KEY and "BUILTIN_JEV" in auth:
+        # Jev 通道：前端无 Key 时发 BUILTIN_JEV 占位符，服务器有本地 Key 则替换（JEV_BUILTIN=0 可关闭注入）
+        if path.startswith("/v1/systemone") and JEV_KEY and BUILTIN_JEV_ENABLED and "BUILTIN_JEV" in auth:
             auth = "Bearer " + JEV_KEY
         req = urllib.request.Request(
             target, data=body, method="POST",

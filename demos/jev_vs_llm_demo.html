@@ -6,70 +6,109 @@
 <title>Jev vs LLM 金融场景对比 Demo</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
+  :root{
+    --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+    --line-1:#e3e7e4; --line-2:#eef1ee;
+    --bg:#f4f6f3; --card:#ffffff;
+    --jev:#0e7a5f; --jev-bg:#ecf6f2;
+    --glm:#5b4fc7; --glm-bg:#efedfb;
+    --amber:#b45309; --amber-bg:#fdf3e0;
+    --red:#b91c1c; --red-bg:#fdeaea;
+  }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:#f7f8fa; color:#1f2329; line-height:1.6; }
+  body { font-family:"PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--ink-1); line-height:1.6; }
+  /* ---- 顶栏（深墨色品牌条） ---- */
+  .topbar{
+    background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+    color:#fff; padding:13px 20px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+  .brand-mark{
+    width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+    background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
+    box-shadow:0 1px 4px rgba(0,0,0,.35);
+  }
+  .brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+  .brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
   .wrap { max-width:1180px; margin:0 auto; padding:24px 20px 60px; }
   h1 { font-size:22px; font-weight:600; margin-bottom:6px; }
-  .sub { color:#646a73; font-size:13px; margin-bottom:20px; }
-  .card { background:#fff; border-radius:10px; padding:20px 22px; margin-bottom:18px; border:1px solid #e8eaed; }
-  .card h2 { font-size:16px; font-weight:600; margin-bottom:4px; }
-  .card .desc { font-size:13px; color:#646a73; margin-bottom:14px; }
-  .tl;dr-box { }
+  .sub { color:var(--ink-3); font-size:13px; margin-bottom:20px; }
+  .card { background:var(--card); border-radius:12px; padding:20px 22px; margin-bottom:18px; border:1px solid rgba(23,24,28,.07); box-shadow:0 1px 2px rgba(23,24,28,.04); }
+  .card h2 { font-size:16px; font-weight:600; margin-bottom:4px; display:flex; align-items:center; gap:8px; }
+  .card h2::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--jev); flex:0 0 7px; }
+  .card .desc { font-size:13px; color:var(--ink-3); margin-bottom:14px; }
   .tldr { display:flex; gap:14px; flex-wrap:wrap; }
-  .kpi { flex:1; min-width:200px; background:#f7f8fa; border-radius:8px; padding:14px 16px; }
+  .kpi { flex:1; min-width:200px; background:var(--bg); border-radius:8px; padding:14px 16px; }
   .kpi .num { font-size:26px; font-weight:700; }
-  .kpi .label { font-size:12px; color:#646a73; }
-  .red { color:#c23531; } .green { color:#2e7d32; }
+  .kpi .label { font-size:12px; color:var(--ink-3); }
+  .red { color:var(--red); } .green { color:var(--jev); }
   .badge { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; margin-left:8px; vertical-align:middle; }
-  .badge.jev { background:#e1f5ee; color:#0f6e56; }
-  .badge.llm { background:#eeedfe; color:#534ab7; }
+  .badge.jev { background:var(--jev-bg); color:var(--jev); }
+  .badge.llm { background:var(--glm-bg); color:var(--glm); }
   .demo-row { display:flex; gap:16px; margin-bottom:14px; }
-  .demo-col { flex:1; border:1px solid #e8eaed; border-radius:8px; padding:16px; }
+  .demo-col { flex:1; border:1px solid var(--line-1); border-radius:8px; padding:16px; }
   .demo-col h3 { font-size:14px; font-weight:600; margin-bottom:10px; }
-  .msg-in { background:#f2f3f5; border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:10px; }
-  .msg-in .who { font-size:11px; color:#8f959e; margin-bottom:2px; }
+  .msg-in { background:var(--bg); border-radius:8px; padding:10px 12px; font-size:13px; margin-bottom:10px; }
+  .msg-in .who { font-size:11px; color:var(--ink-4); margin-bottom:2px; }
   .verdict { border-radius:8px; padding:10px 12px; font-size:13px; margin-top:10px; }
-  .verdict.pass { background:#eaf3de; color:#27500a; }
-  .verdict.block { background:#fcebeb; color:#791f1f; }
-  .verdict.review { background:#faeeda; color:#633806; }
+  .verdict.pass { background:var(--jev-bg); color:var(--jev); }
+  .verdict.block { background:var(--red-bg); color:var(--red); }
+  .verdict.review { background:var(--amber-bg); color:var(--amber); }
   .prob-bar { margin:4px 0; }
-  .prob-bar .name { font-size:12px; color:#4e5258; width:88px; display:inline-block; }
-  .prob-bar .track { display:inline-block; width:calc(100% - 150px); height:16px; background:#f2f3f5; border-radius:4px; vertical-align:middle; position:relative; }
+  .prob-bar .name { font-size:12px; color:var(--ink-2); width:88px; display:inline-block; }
+  .prob-bar .track { display:inline-block; width:calc(100% - 150px); height:16px; background:var(--line-2); border-radius:4px; vertical-align:middle; position:relative; }
   .prob-bar .fill { height:100%; border-radius:4px; position:absolute; left:0; top:0; }
   .prob-bar .val { font-size:12px; margin-left:6px; vertical-align:middle; }
-  .lat { font-size:11px; color:#8f959e; margin-top:8px; }
+  .lat { font-size:11px; color:var(--ink-4); margin-top:8px; }
   table.cmp { width:100%; border-collapse:collapse; font-size:13px; }
-  table.cmp th, table.cmp td { border-bottom:1px solid #eceef1; padding:9px 10px; text-align:left; vertical-align:top; }
-  table.cmp th { background:#f7f8fa; font-weight:600; white-space:nowrap; }
-  .tag-pass { color:#2e7d32; font-weight:600; }
-  .tag-fail { color:#c23531; font-weight:600; }
-  .btn { display:inline-block; padding:7px 18px; border-radius:6px; border:1px solid #d0d3d9; background:#fff; font-size:13px; cursor:pointer; margin-right:10px; margin-bottom:10px; }
-  .btn.primary { background:#1f6fe5; border-color:#1f6fe5; color:#fff; }
-  .note { font-size:12px; color:#8f959e; margin-top:8px; }
+  table.cmp th, table.cmp td { border-bottom:1px solid var(--line-2); padding:9px 10px; text-align:left; vertical-align:top; }
+  table.cmp th { background:var(--bg); font-weight:600; white-space:nowrap; }
+  .tag-pass { color:var(--jev); font-weight:600; }
+  .tag-fail { color:var(--red); font-weight:600; }
+  .btn {
+    display:inline-block; padding:6px 13px; border-radius:8px;
+    border:1px solid var(--line-1); background:var(--card); color:var(--ink-2);
+    font-size:12px; font-family:inherit; cursor:pointer; margin-right:10px; margin-bottom:10px;
+    transition:border-color .15s, box-shadow .15s, background .15s, color .15s;
+  }
+  .btn:hover { border-color:var(--jev); color:var(--jev); background:var(--jev-bg); }
+  .btn:focus-visible { outline:2px solid var(--jev); outline-offset:2px; }
+  .btn.primary { background:var(--jev); border-color:var(--jev); color:#fff; font-weight:600; }
+  .btn.primary:hover { background:#0c6650; color:#fff; border-color:#0c6650; }
+  .btn.primary:active { transform:translateY(1px); }
+  .note { font-size:12px; color:var(--ink-4); margin-top:8px; }
   #chartA1,#chartA2,#chartB1,#chartB2,#chartC1,#chartC2 { width:100%; height:230px; }
-  .switch { font-size:12px; color:#1f6fe5; cursor:pointer; margin-bottom:6px; display:inline-block; }
-  .game-map { background:#f7f8fa; border-radius:8px; padding:14px 16px; margin-bottom:14px; }
-  .game-map h3 { font-size:13px; font-weight:600; margin-bottom:8px; color:#0f6e56; }
-  .game-map p { font-size:12.5px; color:#4e5258; }
+  .switch { font-size:12px; color:var(--jev); cursor:pointer; margin-bottom:6px; display:inline-block; }
+  .game-map { background:var(--bg); border-radius:8px; padding:14px 16px; margin-bottom:14px; }
+  .game-map h3 { font-size:13px; font-weight:600; margin-bottom:8px; color:var(--jev); }
+  .game-map p { font-size:12.5px; color:var(--ink-2); }
   .arrow-flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:10px 0; }
-  .flow-node { background:#fff; border:1px solid #d0d3d9; border-radius:6px; padding:6px 12px; font-size:12px; }
-  .flow-arrow { color:#8f959e; font-size:14px; }
+  .flow-node { background:var(--card); border:1px solid var(--line-1); border-radius:6px; padding:6px 12px; font-size:12px; }
+  .flow-arrow { color:var(--ink-4); font-size:14px; }
 </style>
 </head>
 <body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">Jev vs LLM 金融场景对比<span class="sub">意图识别 · 转账反诈门控 · 理财产品匹配 · bocha-jev-v1 vs GLM-Flash 实测</span></span>
+  </div>
+</header>
 <div class="wrap">
   <h1>Jev 决策模型金融场景实测对比 <span class="badge jev">bocha-jev-v1 实测</span></h1>
-  <div class="sub">对标博查官方游戏 Demo 的展示方式：同样的"状态输入 → 概率输出 → 程序执行"，换成金融业务决策 | 数据来源：本机实测 2026-09-27，API 延迟为真实返回值</div>
+  <div class="sub">对标博查官方游戏 Demo 的展示方式：同样的"状态输入 → 概率输出 → 程序执行"，换成金融业务决策 | 数据来源：本机实测 2026-09-27，API 延迟为真实返回值（2026-11-19 复测 choice 通道已修复，见下方时效说明）</div>
 
   <div class="card">
     <h2>结论速览</h2>
     <div class="tldr">
-      <div class="kpi"><div class="num red">27%</div><div class="label">Jev 意图识别准确率（15条样本，随机水平20%）</div></div>
+      <div class="kpi"><div class="num red">27%</div><div class="label">Jev 意图识别准确率（15条样本，2026-09-27 实测，随机水平20%）</div></div>
       <div class="kpi"><div class="num">6.3ms</div><div class="label">Jev 单次推理延迟（真实 API 返回）</div></div>
       <div class="kpi"><div class="num green">100%</div><div class="label">GLM-Flash 同题准确率（结构化输出）</div></div>
       <div class="kpi"><div class="num">¥0.001</div><div class="label">LLM 方案单条决策成本（百万级 token 计价）</div></div>
     </div>
-    <div class="note">核心结论：Jev 快且免费，但中文金融分类准确率接近随机；LLM 结构化输出慢一个数量级（约1秒）但判断正确。金融场景的答案不是二选一，见文末架构建议。</div>
+    <div class="verdict review" style="margin-top:12px;">⚠ 数据时效说明：本页 27.8% / 27% 等 Jev 数据为 <b>2026-09-27 实测</b>（choice 通道概率坍缩）。<b>2026-11-19 复测：choice 通道已修复</b>——同一条挂失消息 loss_fraud 返回 99.7%，noul 探针阵列五问 220-320ms 全部高置信直通。「准确率近随机」的结论仅对当时版本成立，上线决策以最新回归为准。</div>
+    <div class="note">核心结论（基于 2026-09-27 实测）：Jev 快且免费，但当时中文金融分类准确率接近随机；LLM 结构化输出慢一个数量级（约1秒）但判断正确。金融场景的答案不是二选一，见文末架构建议。</div>
   </div>
 
   <div class="card">
@@ -117,7 +156,7 @@
     <span class="switch" onclick="toggleChart('chartA1','chartA2')">切换：批量测试 15 条样本对比图 / 表</span>
     <div id="chartA1"></div>
     <div id="chartA2" style="display:none;"></div>
-    <div class="note">样本说明：15 条覆盖转账/理财/账户/挂失/投诉五类真实客服话术，标注见 jev_finance_poc.py；Jev 数据为 2026-09-27 真实 API 返回。</div>
+    <div class="note">样本说明：15 条覆盖转账/理财/账户/挂失/投诉五类真实客服话术，标注见 jev_finance_poc.py；Jev 数据为 2026-09-27 真实 API 返回（历史版本，2026-11-19 复测该通道已修复）。</div>
   </div>
 
   <div class="card">
@@ -204,7 +243,7 @@
   <div class="card">
     <h2>Demo 汇报话术（对标官方游戏 demo 的讲法）</h2>
     <p style="font-size:13px;color:#4e5258;margin-bottom:8px;">给业务方演示时可以直接类比：「官方用贪吃蛇展示模型每 300ms 选一次方向；我们用真实客服消息展示模型每条消息给一次概率。区别在于游戏里选错方向最多撞墙重来，金融里路由错一条工单是客诉，放行一笔诈骗是真金白银——所以我们把决策正确率和概率质量放在延迟之前考核。」</p>
-    <p style="font-size:13px;color:#4e5258;">一句话总结：Jev 展示了「决策模型」这个品类的方向和速度，但 bocha-jev-v1 当前版本的中文业务判断力撑不起金融场景；先上 LLM 结构化输出的三层架构，把 Jev 留在观察名单。</p>
+    <p style="font-size:13px;color:#4e5258;">一句话总结：Jev 展示了「决策模型」这个品类的方向和速度。2026-09-27 版本曾出现 choice 通道近随机的坍缩，2026-11-19 复测已修复（挂失 99.7%）——模型会迭代，上线前必须以同一套样本做最新回归，把「季度回归」做成硬门槛。</p>
   </div>
 </div>
 
@@ -319,9 +358,7 @@ function renderTable(elId, data) {
   el.innerHTML = html;
 }
 
-chartB2Rendered = false;
-chartC2Rendered = false;
-document.getElementById('chartA2').addEventListener('DOMSubtreeModified', function(){});
+var chartB2Rendered = false, chartC2Rendered = false;
 
 var origToggle = toggleChart;
 toggleChart = function(showId, hideId) {

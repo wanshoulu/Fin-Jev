@@ -103,7 +103,7 @@ Jev 属第 1 类的变体：**System One 判定模型**——不生成文本，�
 | LangChain 官方 | `ModelRouterMiddleware`：`ModelChoice(fast/powerful)` 各带 criteria，Jev 选档 | 官方 experimental |
 | madewithjev.com "Routing and models" 类目 | 68 个路由相关 builds | 社区 |
 
-结论：**"Jev 打分 → 代码分档 → 切模型"是被广泛验证的成熟模式**，我们要做的是把它工程化到 Fin-Jev / Jev-Agent 的链路里。
+结论：**"Jev 打分 → 代码分档 → 切模型"是被广泛验证的成熟模式**，我们要做的是把它工程化到 Fin-Jev 的链路里。
 
 ---
 
