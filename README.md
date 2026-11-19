@@ -1,10 +1,24 @@
+<div align="center">
+
 # Fin-Jev
 
-不训练、零样本的银行意图路由 PoC：**6 个并行是非题 + 三层门控 + 图谱/向量双视图选题**，直通流量 21.7ms 落定，模糊流量升级 GLM 精判兜底。
+**不训练、零样本的银行意图路由 PoC**
 
-![双引擎对决：同一条消息，两个引擎各自到达](docs/duel_chat_hero.png)
+6 个并行是非题 + 三层门控 + 图谱/向量双视图选题——直通流量 21.7ms 落定，模糊流量升级 GLM 精判兜底
 
-输入任意客户消息：左边两张引擎卡片先后亮起（Jev 秒回、GLM ~3s 后到，延迟差肉眼可见），右边是每一次调用的完整原始报文。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](server/jev_proxy.py)
+[![Demos](https://img.shields.io/badge/可运行演示-11 个-green.svg)](#demos按演进顺序)
+
+[快速开始](#-quick-start) · [界面一览](#-界面一览) · [工作原理](#-how-it-works) · [部署](#-部署到服务器) · [实验记录](docs/experiments.md) · [架构决策](docs/architecture.md)
+
+---
+
+**统一工作台**：左栏 5 个测试台随点随切，右上角「⚙ 模型配置」直达全站统一配置中心
+
+![Fin-Jev 统一工作台：左栏 5 个测试台，右侧对话式双引擎](docs/workbench.png)
+
+</div>
 
 ## 项目简介
 
@@ -23,10 +37,50 @@
 
 **核心发现**：同一个模型，多分类直问准确率 **25%**，拆成是非题并行 **83%**——问题形态比模型选择更重要。状态：PoC（样本 23~49 条，百分比不外推生产指标）。意图图谱的工程化建模在姊妹仓库 [graph-builder](https://gitcode.com/wangkun_123/graph-builder)。
 
-## Quick start
+## 界面一览
+
+5 个测试台互不依赖，全部真实调用（通道条实时显示「同源代理 · 模型名 · 自检通过 HTTP 200 · 耗时」）：
+
+### 对话式双引擎测试台 · `duel_chat.html`
+
+同一条客户消息，Jev 与 Qwen 两张引擎卡片先后亮起（Jev 秒回、对方 ~3s 后到，延迟差肉眼可见），右侧是两条流水线卡与会话统计，右上角「⚙ 模型配置」直达统一配置。
+
+![对话式双引擎测试台](docs/duel_chat.png)
+
+### 语义路由测试台 · `semantic_routing.html`
+
+意图路由流水线全展开：L0 GateGuard 门禁 → L1 RouteCache 缓存 → L2 RuleEngine 规则 → L3 JevClassifier 语义（6×noul 并行）→ L4 DecisionEngine 决策 → OUT 最终结果，每一跳的命中/耗时分毫可见。
+
+![语义路由测试台](docs/semantic_routing.png)
+
+### 单询单质检台 · `compliance_qc.html`
+
+坐席话术合规质检：L0 RuleScan 规则扫描 → L1 JevProbes 并行探针（6×noul 出六维概率）→ L2 Verdict 综合定级，右侧整体风险定级 + 审计 JSONL。
+
+![单询单质检台](docs/compliance_qc.png)
+
+### GenAI 输出护栏台 · `guardrail.html`
+
+生成内容三态闸门（放行 / 降级 / 拦截）：L0 SceneGate 场景闸门 → L1 JevGates 并行闸门（5×noul）→ L2 Verdict 裁决，承诺类、暗示收益类文案当场现形。
+
+![GenAI 输出护栏台](docs/guardrail.png)
+
+### Agent 工具调用风控台 · `tool_gate.html`
+
+工具调用风险分级：低危自动执行、高危进 HITL 审批队列、提示词注入当场拦截——L0 CallContext 调用上下文 → L1 JevGates 并行闸门 → L2 Verdict 风控裁决。
+
+![Agent 工具调用风控台](docs/tool_gate.png)
+
+### 模型配置中心 · `model_settings.html`
+
+Jev 决策模型与 GLM 对话大模型一处配置、全部测试台立即生效（存本机 localStorage `finjev_cfg_v1`）：模型名可改、Key 留空即走同源代理 `BUILTIN_JEV` 注入，真实密钥永不入库。
+
+![模型配置中心](docs/model_settings.png)
+
+## 🚀 Quick start
 
 ```bash
-git clone https://gitcode.com/wangkun_123/Fin-Jev.git
+git clone https://github.com/wanshoulu/Fin-Jev.git    # 镜像：https://gitcode.com/wangkun_123/Fin-Jev.git
 cd Fin-Jev/server
 python jev_proxy.py        # Python 3.8+，零依赖
 ```
@@ -46,6 +100,20 @@ Jev 卡片秒回（挂失止付 87%，gap 0.05 触发升级）→ GLM 卡片约 
 
 也可以直接双击 `demos/duel_chat.html`——页面自动探测本地转发器并切换完整地址通道。
 
+## How it works
+
+![架构：一条消息的完整路径](docs/architecture_flow.png)
+
+**一次真实调用走查**（在 [对话式双引擎测试台](#对话式双引擎测试台--duel_chathtml) 点第一条 chip 即可复现）：
+
+| 环节 | 结果 |
+| --- | --- |
+| Jev 阵列 | 挂失止付 **87%** · 账户查询 **82%** · 其余 ≤49% |
+| 门控 | top1 ✓ 但 gap=0.05 < 0.2 → 升级（"挂失"与"查账户"语义相邻，argmax 不可信） |
+| GLM 复核 | 挂失止付 **95%**——3.6s 的钱花在了刀刃上 |
+
+每次调用的完整请求/响应报文在页面右侧报文面板可逐条展开。
+
 ## 部署到服务器
 
 静态演示页 + git 推送即部署：服务器上放一个裸仓库，`post-receive` 钩子自动 checkout 到站点目录，`jev_proxy.py` 同时托管静态页。
@@ -60,22 +128,6 @@ chmod +x /srv/fin-jev.git/hooks/post-receive
 git remote add server user@your-server:/srv/fin-jev.git
 git push server main          # 推送即部署，静态页即时生效、无需重启
 ```
-
-## How it works
-
-![架构：一条消息的完整路径](docs/architecture_flow.png)
-
-**一次真实调用走查**（截图就是它）：
-
-| 环节 | 结果 |
-| --- | --- |
-| Jev 阵列 | 挂失止付 **87%** · 账户查询 **82%** · 其余 ≤49% |
-| 门控 | top1 ✓ 但 gap=0.05 < 0.2 → 升级（"挂失"与"查账户"语义相邻，argmax 不可信） |
-| GLM 复核 | 挂失止付 **95%**——3.6s 的钱花在了刀刃上 |
-
-右侧报文面板看每次调用的完整请求/响应：
-
-![原始报文追踪面板](docs/trace_panel.png)
 
 ## 与三条老路的差别
 
@@ -115,7 +167,7 @@ git push server main          # 推送即部署，静态页即时生效、无需
 
 ## Demos：按演进顺序
 
-每个 demo 是探索一个阶段留下的可运行产物，互不依赖，均可双击直开（file:// 已适配）。`demos/index.html` 是卡片索引，`demos/workbench.html` 是统一工作台（左栏切换 5 个测试台）：
+每个 demo 是探索一个阶段留下的可运行产物，互不依赖，均可双击直开（file:// 已适配）。`demos/index.html` 是卡片索引，`demos/workbench.html` 是统一工作台（左栏切换 5 个测试台）；5~10 号的界面截图见上方[界面一览](#-界面一览)。
 
 | # | 文件 | 回答的问题 |
 | --- | --- | --- |
@@ -124,7 +176,7 @@ git push server main          # 推送即部署，静态页即时生效、无需
 | 2 | `demos/jev_vs_llm_demo.html` | 多分类直问 vs noul 化差多少？（25%→83% 现场复现） |
 | 3 | `demos/jev_pipeline_demo.html` | 聚合 + 门控流水线怎么走？8 条典型消息全可复跑 |
 | 4 | `demos/duel_demo.html` | 双引擎同题对决（静态版） |
-| 5 | `demos/duel_chat.html` | 对话式双引擎测试台（截图即此页） |
+| 5 | `demos/duel_chat.html` | 对话式双引擎测试台 |
 | 6 | `demos/semantic_routing.html` | 意图路由流水线：6×noul 并行 + 三层门控 + GLM 升级复核 |
 | 7 | `demos/compliance_qc.html` | 坐席话术合规质检：6×noul 并行出六维概率 + 可行改写 |
 | 8 | `demos/guardrail.html` | GenAI 输出护栏：5×noul 三态闸门（放行 / 降级 / 拦截） |
@@ -145,8 +197,9 @@ Fin-Jev/
 │   ├── experiments.md         # E0~E5 实验记录：方法、数据、结论
 │   ├── architecture_flow.png  # 架构图（一条消息的完整路径）
 │   ├── knowledge_loop.png     # 知识闭环图（源文件 .svg 同目录）
-│   ├── duel_chat_hero.png     # 工具截图（本页头图）
-│   └── trace_panel.png        # 报文面板截图
+│   ├── workbench.png          # 界面截图：统一工作台（README 头图）
+│   └── duel_chat / semantic_routing / compliance_qc / guardrail / tool_gate / model_settings .png
+│                              # 界面截图：5 个测试台 + 模型配置中心
 ├── server/jev_proxy.py        # 本地一体化服务器：静态页 + Jev/GLM/向量库转发 + 一键重编译
 ├── jev_finance_poc.py         # E0：API 能力验证脚本
 └── demos/                     # 上表 0~10 号演示 + index.html（卡片索引）+ workbench.html（统一工作台）

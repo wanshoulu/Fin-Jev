@@ -290,4 +290,4 @@ R40 实证了反面：duel_chat 的 PROBES 手工镜像导致图谱侧与前端�
 |---|---|---|
 | 架构总览（§1） | `architecture_flow.png`（源文件 architecture_flow.svg） | 改 svg 源文件后浏览器打开截图更新 png |
 | 知识闭环（§5.6） | `knowledge_loop.png`（源文件 knowledge_loop.svg） | 同上 |
-| 工具截图（README 头图） | `duel_chat_hero.png` / `trace_panel.png` | 运行 `duel_chat.html` 截图更新 |
+| 界面截图（README 头图 + 界面一览） | `workbench.png` / `duel_chat.png` / `semantic_routing.png` / `compliance_qc.png` / `guardrail.png` / `tool_gate.png` / `model_settings.png` 共 7 张 | Playwright-core + 本机 Chrome 无头对部署站截图（1600×1000，脚本见会话记录；等价做法：浏览器打开页面截图） |
