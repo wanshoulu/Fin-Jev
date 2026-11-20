@@ -178,7 +178,58 @@ body{
 .pl-arrow{font-size:11px; color:var(--ink-4); margin-left:14px; line-height:1;}
 </style>
 </head>
-<body>
+<body data-workbench-token-patch="r52">
+<script>
+/* R52 token 注入补丁 v2（R56）：同步拉取 /token.txt（阻塞至拿到令牌），彻底消除启动竞态；
+   包装 fetch 给同源 /v1/ 请求自动附带；403 时自动重拉 token 重试一次 */
+(function(){
+  try{
+    var x=new XMLHttpRequest();
+    x.open("GET","/token.txt",false);  // 同步：阻塞脚本执行直至返回
+    x.send(null);
+    if(x.status===200) window.__wbToken=(x.responseText||"").trim();
+  }catch(e){}
+  if(!window.__wbToken){
+    try{ fetch("/token.txt").then(function(r){return r.text()}).then(function(t){ window.__wbToken=(t||"").trim(); }); }catch(e){}
+  }
+  var _fetch = window.fetch;
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === "string") ? input : (input && input.url) || "";
+      if (url.indexOf("/v1/") === 0){
+        init = init || {};
+        init.headers = init.headers || {};
+        if (init.headers instanceof Headers){ if(!init.headers.has("X-Workbench-Token")) init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+        else if (Array.isArray(init.headers)){ if(!init.headers.some(function(h){return (h[0]||"").toLowerCase()==="x-workbench-token";})) init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+        else if (!init.headers["X-Workbench-Token"]) init.headers["X-Workbench-Token"] = window.__wbToken||"";
+      }
+    }catch(e){}
+    var p = _fetch.call(window, input, init);
+    // 403 兜底：token 可能过期/未取到 → 重拉一次再重试
+    try{
+      return p.then(function(resp){
+        if(resp.status===403 && url.indexOf("/v1/")===0 && !input.__wbRetry){
+          return fetch("/token.txt").then(function(r){return r.text()}).then(function(t){
+            window.__wbToken=(t||"").trim();
+            if(typeof input==="string"){ input = input; }
+            try{
+              init = init || {}; init.headers = init.headers || {};
+              if (init.headers instanceof Headers){ init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+              else if (Array.isArray(init.headers)){ init.headers = init.headers.filter(function(h){return (h[0]||"").toLowerCase()!=="x-workbench-token";}); init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+              else { init.headers["X-Workbench-Token"] = window.__wbToken||""; }
+            }catch(e){}
+            init.__wbRetry = true;
+            return _fetch.call(window, input, init);
+          });
+        }
+        return resp;
+      });
+    }catch(e){ return p; }
+  };
+})();
+</script>
+
+
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark"></span>

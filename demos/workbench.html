@@ -77,11 +77,62 @@ iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background
 @media (max-width:760px){ .sidebar{width:64px;flex:0 0 64px;} .brand h1,.brand .sub,.app-item .d,.foot{display:none;} .brand{text-align:center;padding:16px 6px;} .app-item{padding:10px 6px;text-align:center;} .app-item .t{justify-content:center;} .ico{margin:0;} }
 </style>
 </head>
-<body>
+<body data-workbench-token-patch="r52">
+<script>
+/* R52 token 注入补丁 v2（R56）：同步拉取 /token.txt（阻塞至拿到令牌），彻底消除启动竞态；
+   包装 fetch 给同源 /v1/ 请求自动附带；403 时自动重拉 token 重试一次 */
+(function(){
+  try{
+    var x=new XMLHttpRequest();
+    x.open("GET","/token.txt",false);  // 同步：阻塞脚本执行直至返回
+    x.send(null);
+    if(x.status===200) window.__wbToken=(x.responseText||"").trim();
+  }catch(e){}
+  if(!window.__wbToken){
+    try{ fetch("/token.txt").then(function(r){return r.text()}).then(function(t){ window.__wbToken=(t||"").trim(); }); }catch(e){}
+  }
+  var _fetch = window.fetch;
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === "string") ? input : (input && input.url) || "";
+      if (url.indexOf("/v1/") === 0){
+        init = init || {};
+        init.headers = init.headers || {};
+        if (init.headers instanceof Headers){ if(!init.headers.has("X-Workbench-Token")) init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+        else if (Array.isArray(init.headers)){ if(!init.headers.some(function(h){return (h[0]||"").toLowerCase()==="x-workbench-token";})) init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+        else if (!init.headers["X-Workbench-Token"]) init.headers["X-Workbench-Token"] = window.__wbToken||"";
+      }
+    }catch(e){}
+    var p = _fetch.call(window, input, init);
+    // 403 兜底：token 可能过期/未取到 → 重拉一次再重试
+    try{
+      return p.then(function(resp){
+        if(resp.status===403 && url.indexOf("/v1/")===0 && !input.__wbRetry){
+          return fetch("/token.txt").then(function(r){return r.text()}).then(function(t){
+            window.__wbToken=(t||"").trim();
+            if(typeof input==="string"){ input = input; }
+            try{
+              init = init || {}; init.headers = init.headers || {};
+              if (init.headers instanceof Headers){ init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+              else if (Array.isArray(init.headers)){ init.headers = init.headers.filter(function(h){return (h[0]||"").toLowerCase()!=="x-workbench-token";}); init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+              else { init.headers["X-Workbench-Token"] = window.__wbToken||""; }
+            }catch(e){}
+            init.__wbRetry = true;
+            return _fetch.call(window, input, init);
+          });
+        }
+        return resp;
+      });
+    }catch(e){ return p; }
+  };
+})();
+</script>
+
+
 <aside class="sidebar">
   <div class="brand"><h1>Fin-Jev 工作台</h1><div class="sub">Jev 判定模型 · 应用入口</div></div>
   <nav id="nav"></nav>
-  <div class="foot">同源代理需先运行 <code>python server/jev_proxy.py</code>（8787）后经 http://127.0.0.1:8787/ 访问；双击直开本页（file://）时应用自动切官方直连。</div>
+  <div class="foot">经同源代理访问（jev_proxy.py，支持 HTTP/HTTPS）；API 转发通道已启用令牌校验（R52）与限流（R53）。</div>
 </aside>
 <main class="stage">
   <iframe id="app" title="应用区"></iframe>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fin-Jev 演示索引</title>
+<title>Fin-Jev 工作台</title>
 <link rel="icon" href="favicon.ico">
 <style>
 :root{
@@ -13,153 +13,180 @@
   --jev:#0e7a5f; --jev-bg:#ecf6f2;
   --glm:#5b4fc7; --glm-bg:#efedfb;
   --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100%;}
 body{
+  display:flex; overflow:hidden;
   font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
   background:var(--bg); color:var(--ink-1);
   font-size:14px; line-height:1.6;
   -webkit-font-smoothing:antialiased;
 }
-/* ---- 顶栏（深墨色品牌条） ---- */
-.topbar{
+.sidebar{
+  width:236px; flex:0 0 236px;
   background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
-  color:#fff; padding:13px 20px;
-  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  border-right:0.5px solid rgba(255,255,255,.08);
+  display:flex; flex-direction:column;
 }
-.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
-.brand-mark{
-  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
-  background:linear-gradient(135deg,var(--jev) 0 55%,var(--glm) 55% 100%);
-  box-shadow:0 1px 4px rgba(0,0,0,.35);
+.brand{padding:20px 18px 14px; border-bottom:0.5px solid rgba(255,255,255,.08);}
+.brand h1{font-size:17px;font-weight:700;letter-spacing:.5px;color:#fff;}
+.brand .sub{font-size:11px;color:var(--ink-4);margin-top:2px;}
+nav{padding:12px 10px; flex:1; overflow:auto;}
+.app-item{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  background:transparent; border:0.5px solid transparent; border-radius:10px;
+  padding:12px 14px; margin-bottom:8px;
+  transition:border-color .15s, background .15s;
+  font-family:inherit; font-size:inherit; color:#fff;
 }
-.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
-.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
-/* ---- 列表 ---- */
-.wrap{max-width:880px;margin:0 auto;padding:36px 24px 64px;}
-.card{
-  display:block;text-decoration:none;color:inherit;
-  background:var(--card);border:1px solid rgba(23,24,28,.07);border-radius:12px;
-  padding:18px 22px;margin-bottom:12px;
-  box-shadow:0 1px 2px rgba(23,24,28,.04);
-  transition:transform .15s,box-shadow .15s,border-color .15s;
+.app-item:focus-visible{outline:2px solid var(--jev); outline-offset:2px;}
+.app-item:hover{background:rgba(255,255,255,.07);}
+.app-item.on{background:var(--jev-bg); border-color:var(--jev); color:var(--ink-1);}
+.app-item .t{font-size:14px;font-weight:600;display:flex;align-items:center;gap:9px;}
+.ico{
+  width:24px;height:24px;flex:0 0 24px;border-radius:7px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#fff;
 }
-.card:hover{border-color:var(--jev);box-shadow:0 3px 12px rgba(14,122,95,.10);transform:translateY(-1px);}
-.card:focus-visible{outline:2px solid var(--jev);outline-offset:2px;}
-.card-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
-.card-tag{
-  font-size:10px;font-weight:600;padding:2px 9px;border-radius:20px;
-  white-space:nowrap;
+.ico-a{background:var(--jev);}
+.ico-b{background:var(--glm);}
+.ico-c{background:#b14a3c;}
+.ico-d{background:#2e6fa3;}
+.ico-e{background:#b97218;}
+.app-item.on .ico-a{background:#0c5c48;}
+.app-item.on .ico-b{background:#46409f;}
+.app-item.on .ico-c{background:#8a372d;}
+.app-item.on .ico-d{background:#24557d;}
+.app-item.on .ico-e{background:#8f5712;}
+.app-item .d{font-size:11px;color:var(--ink-4);margin-top:3px;}
+.app-item.on .d{color:var(--ink-3);}
+.foot{padding:12px 16px 16px; border-top:0.5px solid rgba(255,255,255,.08); font-size:11px; color:var(--ink-4); line-height:1.7;}
+.foot code{font-size:10px; background:rgba(255,255,255,.1); padding:1px 4px; border-radius:3px;}
+.stage{flex:1; position:relative; background:var(--bg);}
+iframe{position:absolute; inset:0; width:100%; height:100%; border:0; background:#fff;}
+#noload{
+  position:absolute; inset:0; display:none; z-index:5;
+  align-items:center; justify-content:center; text-align:center;
+  background:var(--bg); padding:32px;
 }
-.tag-main{background:var(--jev-bg);color:var(--jev);}
-.tag-glm{background:var(--glm-bg);color:var(--glm);}
-.tag-pipeline{background:var(--amber-bg);color:var(--amber);}
-.tag-lab{background:var(--line-2);color:var(--ink-2);}
-.tag-new{background:#e7f1fb;color:#2e6fa3;}
-.card-title{font-size:15px;font-weight:600;}
-.card-desc{color:var(--ink-3);font-size:12px;line-height:1.65;}
-.hint{margin-top:24px;padding-top:16px;border-top:0.5px solid var(--line-2);color:var(--ink-4);font-size:11px;}
-.hint code{font-family:Consolas,Menlo,monospace;color:var(--ink-2);}
+#noload .box{max-width:420px; background:var(--card); border:0.5px solid var(--line-1); border-radius:12px; padding:28px 30px;}
+#noload h2{font-size:15px; color:var(--amber); margin-bottom:10px;}
+#noload p{font-size:12px; color:var(--ink-3);}
+@media (max-width:760px){ .sidebar{width:64px;flex:0 0 64px;} .brand h1,.brand .sub,.app-item .d,.foot{display:none;} .brand{text-align:center;padding:16px 6px;} .app-item{padding:10px 6px;text-align:center;} .app-item .t{justify-content:center;} .ico{margin:0;} }
 </style>
 </head>
-<body>
-<header class="topbar">
-  <div class="brand">
-    <span class="brand-mark"></span>
-    <span class="brand-name">Fin-Jev 演示索引<span class="sub">Jev noul 阵列 + GLM-5.3-Flash 双引擎金融意图决策 · 10 个交互式演示</span></span>
-  </div>
-</header>
-<div class="wrap">
-  <a class="card" href="workbench.html">
-    <div class="card-head">
-      <span class="card-tag tag-main">入口</span>
-      <span class="card-title">Fin-Jev 工作台</span>
-    </div>
-    <p class="card-desc">统一工作台：左栏切换「意图识别 / 语义路由 / 话术质检 / 输出护栏 / 工具风控」5 个测试台，iframe 承载，各应用仍可独立直开</p>
-  </a>
+<body data-workbench-token-patch="r52">
+<script>
+/* R52 token 注入补丁 v2（R56）：同步拉取 /token.txt（阻塞至拿到令牌），彻底消除启动竞态；
+   包装 fetch 给同源 /v1/ 请求自动附带；403 时自动重拉 token 重试一次 */
+(function(){
+  try{
+    var x=new XMLHttpRequest();
+    x.open("GET","/token.txt",false);  // 同步：阻塞脚本执行直至返回
+    x.send(null);
+    if(x.status===200) window.__wbToken=(x.responseText||"").trim();
+  }catch(e){}
+  if(!window.__wbToken){
+    try{ fetch("/token.txt").then(function(r){return r.text()}).then(function(t){ window.__wbToken=(t||"").trim(); }); }catch(e){}
+  }
+  var _fetch = window.fetch;
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === "string") ? input : (input && input.url) || "";
+      if (url.indexOf("/v1/") === 0){
+        init = init || {};
+        init.headers = init.headers || {};
+        if (init.headers instanceof Headers){ if(!init.headers.has("X-Workbench-Token")) init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+        else if (Array.isArray(init.headers)){ if(!init.headers.some(function(h){return (h[0]||"").toLowerCase()==="x-workbench-token";})) init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+        else if (!init.headers["X-Workbench-Token"]) init.headers["X-Workbench-Token"] = window.__wbToken||"";
+      }
+    }catch(e){}
+    var p = _fetch.call(window, input, init);
+    // 403 兜底：token 可能过期/未取到 → 重拉一次再重试
+    try{
+      return p.then(function(resp){
+        if(resp.status===403 && url.indexOf("/v1/")===0 && !input.__wbRetry){
+          return fetch("/token.txt").then(function(r){return r.text()}).then(function(t){
+            window.__wbToken=(t||"").trim();
+            if(typeof input==="string"){ input = input; }
+            try{
+              init = init || {}; init.headers = init.headers || {};
+              if (init.headers instanceof Headers){ init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+              else if (Array.isArray(init.headers)){ init.headers = init.headers.filter(function(h){return (h[0]||"").toLowerCase()!=="x-workbench-token";}); init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+              else { init.headers["X-Workbench-Token"] = window.__wbToken||""; }
+            }catch(e){}
+            init.__wbRetry = true;
+            return _fetch.call(window, input, init);
+          });
+        }
+        return resp;
+      });
+    }catch(e){ return p; }
+  };
+})();
+</script>
 
-  <a class="card" href="duel_chat.html">
-    <div class="card-head">
-      <span class="card-tag tag-main">主推</span>
-      <span class="card-title">对话式双引擎测试台</span>
-    </div>
-    <p class="card-desc">完整流水线交互式聊天：图遍历召回 → 向量选题 → Jev 并行是非题 → 三层门控 → GLM 复核/影子对照，实时展示每阶段输入输出</p>
-  </a>
 
-  <a class="card" href="semantic_routing.html">
-    <div class="card-head">
-      <span class="card-tag tag-main">主推</span>
-      <span class="card-title">语义路由测试台</span>
-    </div>
-    <p class="card-desc">L0 门禁 → L1 缓存 → L2 规则 → L3 Jev 语义 → L4 决策 → 最终结果分层管道可视化：14 类金融任务自动分类并映射模型档位，监管高风险强制复核</p>
-  </a>
-
-  <a class="card" href="compliance_qc.html">
-    <div class="card-head">
-      <span class="card-tag tag-new">新增</span>
-      <span class="card-title">坐席话术合规质检台</span>
-    </div>
-    <p class="card-desc">坐席对话全量筛查：6×noul 违规探针（承诺收益/风险提示缺失/禁语/误导/索密/诱导）+ 整体风险定级，规则捷径硬命中直标，输出通过/预警/拦截与处置建议</p>
-  </a>
-
-  <a class="card" href="guardrail.html">
-    <div class="card-head">
-      <span class="card-tag tag-new">新增</span>
-      <span class="card-title">GenAI 输出护栏台</span>
-    </div>
-    <p class="card-desc">机器人拟回复出街前合规闸门：投资建议/收益暗示/敏感泄露/绝对化用语/风险提示缺失 5×noul 并行，放行/人工审核/拦截三态 + 整改建议</p>
-  </a>
-
-  <a class="card" href="tool_gate.html">
-    <div class="card-head">
-      <span class="card-tag tag-new">新增</span>
-      <span class="card-title">Agent 工具调用风控台</span>
-    </div>
-    <p class="card-desc">Agent 执行工具前的 risk gate：涉资金/不可逆/敏感数据/指令一致性 4×noul 并行，低危自动执行、高危进 HITL 审批队列、疑似注入直接拦截</p>
-  </a>
-
-  <a class="card" href="model_settings.html">
-    <div class="card-head">
-      <span class="card-tag tag-lab">配置</span>
-      <span class="card-title">模型配置中心</span>
-    </div>
-    <p class="card-desc">统一配置所有演示使用的 Jev 决策模型与 GLM 大模型（模型名 + 密钥），保存后 5 个测试台自动生效，含连通性自检；优先级高于各台独立面板</p>
-  </a>
-
-  <a class="card" href="jev_pipeline_demo.html">
-    <div class="card-head">
-      <span class="card-tag tag-pipeline">流水线</span>
-      <span class="card-title">Jev 决策流水线 · noul 探针阵列</span>
-    </div>
-    <p class="card-desc">生动演示 Jev 从输入到决策的完整链路：探针注入 → 并行打分 → 概率校准 → 门控升级，含实时决策回放</p>
-  </a>
-
-  <a class="card" href="duel_demo.html">
-    <div class="card-head">
-      <span class="card-tag tag-main">对决</span>
-      <span class="card-title">双引擎实时运行对比</span>
-    </div>
-    <p class="card-desc">Jev noul 阵列（实测 220-320ms）vs GLM-Flash（~1s）同题同答实时对比，直观展示快慢差异与结果一致性</p>
-  </a>
-
-  <a class="card" href="jev_vs_llm_demo.html">
-    <div class="card-head">
-      <span class="card-tag tag-lab">场景</span>
-      <span class="card-title">Jev vs LLM 金融场景对比</span>
-    </div>
-    <p class="card-desc">三大金融场景实测：意图识别（客服路由）、转账反诈门控（安全账户拦截）、理财产品匹配评分</p>
-  </a>
-
-  <a class="card" href="kb_lab.html">
-    <div class="card-head">
-      <span class="card-tag tag-lab">实验</span>
-      <span class="card-title">知识输入对比实验室</span>
-    </div>
-    <p class="card-desc">三种问法（直接分类 / noul 是非题 / 上下文+是非题）的实测对比，验证并行是非题阵列的准确率提升</p>
-  </a>
-
-  <p class="hint">提示：推荐先运行 <code>python server/jev_proxy.py</code> 启动本地代理（端口 8787）后打开 http://127.0.0.1:8787/ 进入统一工作台（左栏切换各演示）。各演示也可直接 file:// 双击打开（自动切官方直连，需自备 Key）。</p>
-</div>
+<aside class="sidebar">
+  <div class="brand"><h1>Fin-Jev 工作台</h1><div class="sub">Jev 判定模型 · 应用入口</div></div>
+  <nav id="nav"></nav>
+  <div class="foot">经同源代理访问（jev_proxy.py，支持 HTTP/HTTPS）；API 转发通道已启用令牌校验（R52）与限流（R53）。</div>
+</aside>
+<main class="stage">
+  <iframe id="app" title="应用区"></iframe>
+  <div id="noload"><div class="box">
+    <h2>应用页面未找到</h2>
+    <p>请确认已启动 <code>python server/jev_proxy.py</code> 并通过 http://127.0.0.1:8787/ 访问；或直接双击 demos 目录下的对应页面打开。</p>
+  </div></div>
+</main>
+<script>
+var APPS=[
+ {id:"duel_chat", ico:"识", cls:"ico-a", name:"意图识别测试台",
+  desc:"对话式双引擎 · noul 阵列 · 图谱召回", url:"duel_chat.html"},
+ {id:"semantic_routing", ico:"路", cls:"ico-b", name:"语义路由测试台",
+  desc:"L0–L4 分层管道 · 14 类 · 模型档位", url:"semantic_routing.html"},
+ {id:"compliance_qc", ico:"检", cls:"ico-c", name:"坐席话术质检台",
+  desc:"话术合规全量筛查 · 6×noul 违规探针", url:"compliance_qc.html"},
+ {id:"guardrail", ico:"护", cls:"ico-d", name:"GenAI 输出护栏台",
+  desc:"出街前合规闸门 · 放行/审核/拦截 + 安全改写", url:"guardrail.html"},
+ {id:"tool_gate", ico:"控", cls:"ico-e", name:"Agent 工具调用风控台",
+  desc:"工具调用闸门 · 高危 HITL 审批 · 注入拦截", url:"tool_gate.html"}
+];
+var KEY="workbench_active_v1";
+/* 相对路径基准：经根路径（/）服务时补 demos/ 前缀；/demos/ 访问或 file:// 直开时为同目录 */
+var BASE=(location.protocol!=="file:" && location.pathname.indexOf("/demos/")!==0) ? "demos/" : "";
+var cur=null;
+function render(){
+  var nav=document.getElementById("nav"); nav.innerHTML="";
+  APPS.forEach(function(a){
+    var b=document.createElement("button");
+    b.className="app-item"+(a.id===cur?" on":"");
+    b.innerHTML='<div class="t"><span class="ico '+a.cls+'">'+a.ico+'</span>'+a.name+'</div><div class="d">'+a.desc+'</div>';
+    b.onclick=function(){ select(a.id); };
+    nav.appendChild(b);
+  });
+}
+function findApp(id){ for(var i=0;i<APPS.length;i++){ if(APPS[i].id===id) return APPS[i]; } return null; }
+function select(id){
+  cur=id;
+  try{ localStorage.setItem(KEY,id); }catch(e){}
+  render();
+  document.getElementById("app").src=BASE+findApp(id).url;
+}
+/* 简易 404 探测：代理返回的 "not found" 文本页 → 覆盖层提示 */
+document.getElementById("app").addEventListener("load",function(){
+  var tip=false;
+  try{
+    var d=this.contentDocument;
+    if(d && d.body && /^\s*not found\s*$/.test(d.body.textContent||"")) tip=true;
+  }catch(e){}
+  document.getElementById("noload").style.display=tip?"flex":"none";
+});
+var saved=null;
+try{ saved=localStorage.getItem(KEY); }catch(e){}
+select(findApp(saved)?saved:APPS[0].id);
+</script>
 </body>
 </html>

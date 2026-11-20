@@ -6,10 +6,19 @@ jev_proxy.py — 本地一体化服务器（静态页面 + Jev API 同源转发�
 运行:  python server/jev_proxy.py   （仓库根目录执行；平面布局直接 python jev_proxy.py）
 访问:  http://127.0.0.1:8787
 页面与接口同源（无 CORS），转发由 Python 直连完成（绕过系统代理）。
+
+R52/R53 安全加固（2026-11-21，部署版：保留本机现网全部机制，叠加 token 闸门）：
+- API 转发通道（/v1/systemone、/v1/glm、/v1/recompile、/v1/vkb/*）在既有 host白名单
+  + 限流之上，新增 X-Workbench-Token 校验（不符 403）。
+- token 首次启动自动生成存 ROOT/token.local.json，经同源 GET /token.txt 下发
+  （每 IP 2次/60秒限流 + Sec-Fetch-Site: cross-site 拒绝）。
+- 前端页面已注入补丁：自动 fetch /token.txt 并给同源 /v1/ 请求附带 token 头。
+- 环境变量 JEV_TOKEN 可显式指定 token；token 文件不可写时跳过校验（行为同旧版）。
 """
 import json
 import mimetypes
 import os
+import secrets
 import subprocess
 import sys
 import threading
@@ -20,6 +29,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HOST, PORT = os.environ.get("JEV_HOST", "127.0.0.1"), int(os.environ.get("JEV_PORT", "8787"))
 API_URL = "https://jev.bocha.cn/v1/systemone"
+# R55：Jev 通道上游可切换——JEV_UPSTREAM 环境变量指向自建 kev serve（Tailscale 内网），
+# 如 JEV_UPSTREAM=http://100.79.155.126:8011/v1/systemone；留空=官方博查端点（默认）
+JEV_UPSTREAM = os.environ.get("JEV_UPSTREAM", "").strip() or API_URL
 # 布局自适应：仓库布局（本文件在 server/，demos/ 与图谱编译链在上级目录）
 # 或平面布局（页面/图谱/脚本与本文件同目录）均可运行——同一份代码两种落位
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -70,6 +82,57 @@ ALLOWED_JSON = "probes.compiled.json"
 # 服务器替换为本地 Key（公网部署不想开内置 Key 时设 JEV_BUILTIN=0 / GLM_BUILTIN=0）
 BUILTIN_JEV_ENABLED = os.environ.get("JEV_BUILTIN", "1") != "0"
 BUILTIN_GLM_ENABLED = os.environ.get("GLM_BUILTIN", "1") != "0"
+
+# ---- R52：访问令牌 ----
+# 优先级：环境变量 JEV_TOKEN > ROOT/token.local.json > 首次启动自动生成
+#（token.local.json 属 *.local.json 家族，仓库 .gitignore 已排除）。
+# 校验仅针对 API 转发通道；静态页面与 /token.txt 自身不拦。
+ACCESS_TOKEN = os.environ.get("JEV_TOKEN", "")
+_token_cfg_path = os.path.join(ROOT, "token.local.json")
+if not ACCESS_TOKEN and os.path.isfile(_token_cfg_path):
+    try:
+        with open(_token_cfg_path, encoding="utf-8") as _f:
+            ACCESS_TOKEN = json.load(_f).get("token", "")
+    except Exception:
+        pass
+if not ACCESS_TOKEN:
+    ACCESS_TOKEN = secrets.token_urlsafe(24)
+    try:
+        with open(_token_cfg_path, "w", encoding="utf-8") as _f:
+            json.dump({"token": ACCESS_TOKEN}, _f, ensure_ascii=False, indent=2)
+        print("R52: 生成访问令牌 → %s（重启不变；JEV_TOKEN 环境变量可覆盖）" % _token_cfg_path)
+    except Exception:
+        print("R52: 令牌文件不可写，本次运行跳过令牌校验（行为同旧版）")
+        ACCESS_TOKEN = ""
+
+# R53：/token.txt 下发端点专用限流（每 IP 2 次/60 秒）——
+# 页面启动只拉 1 次，刷新不误伤；防脚本高频拉 token 配合限流窗口打满上游配额
+TOKEN_FETCH_N = 20
+_TOKEN_FETCH_LOCK = threading.Lock()
+_TOKEN_FETCH_HITS = {}
+
+
+def _token_fetch_ok(ip):
+    now = time.time()
+    ts = _TOKEN_FETCH_HITS.get(ip, [])
+    ts = [t for t in ts if now - t < 60]
+    if len(ts) >= TOKEN_FETCH_N:
+        _TOKEN_FETCH_HITS[ip] = ts
+        return False
+    ts.append(now)
+    _TOKEN_FETCH_HITS[ip] = ts
+    if len(_TOKEN_FETCH_HITS) > 5000:
+        for k in [k for k, v in _TOKEN_FETCH_HITS.items() if not v or now - v[-1] > 60]:
+            _TOKEN_FETCH_HITS.pop(k, None)
+    return True
+
+
+def _token_ok(handler):
+    """R52：校验 X-Workbench-Token；ACCESS_TOKEN 为空 = 不启用（保持旧版兼容）。"""
+    if not ACCESS_TOKEN:
+        return True
+    supplied = handler.headers.get("X-Workbench-Token", "")
+    return secrets.compare_digest(supplied, ACCESS_TOKEN)
 
 # POST body 上限（字节）
 MAX_BODY = 2 * 1024 * 1024
@@ -129,8 +192,9 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def _cors(self):
+        # R52：Allow-Headers 增补 X-Workbench-Token；Origin 仍为 *（前端已由 token 闸门保护）
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Workbench-Token")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("X-Content-Type-Options", "nosniff")
 
@@ -142,10 +206,60 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._check_origin(): return
         path = self.path.split("?")[0]
+        # R52：同源下发访问令牌（前端注入补丁自动 fetch；页面业务代码零改动）。
+        # R53：端点自身限流（2次/60秒）+ cross-site 拒绝（现代浏览器自动带 Sec-Fetch-Site）。
+        if path == "/token.txt":
+            site = self.headers.get("Sec-Fetch-Site", "")
+            if site in ("cross-site", "same-protocol-cross-site"):
+                self.send_response(403)
+                self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"detail": "cross-site token fetch denied"}).encode())
+                return
+            ip = self.client_address[0] if self.client_address else "?"
+            if not _token_fetch_ok(ip):
+                self.send_response(429)
+                self._cors()
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"detail": "token fetch rate limit: 2 / 60s per IP"}).encode())
+                return
+            body = (ACCESS_TOKEN or "").encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        # R57：通道清单（下拉数据源）——同源可读，不含敏感信息
+        if path == "/v1/channels":
+            up = JEV_UPSTREAM if JEV_UPSTREAM != API_URL else "bocha"
+            payload = json.dumps({
+                "jev": {
+                    "current": "kev" if up != "bocha" else "bocha",
+                    "options": [
+                        {"id": "bocha", "name": "博查官方 bocha-jev-v1（云，快）"},
+                        {"id": "kev", "name": "本机 kev 0.8B（自训，经 Tailscale）"},
+                    ],
+                }
+            }, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(payload)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         # 向量知识库 GET 转发（stats / chunks / documents / export）
         if path.startswith(VKB_PREFIX):
             if not _rate_ok(VKB_PREFIX.rstrip("/"), self.client_address[0]):
                 self._rate_limited()
+                return
+            if not _token_ok(self):
+                self._token_denied()
                 return
             self._forward_vkb("GET", path[len(VKB_PREFIX):], None)
             return
@@ -184,6 +298,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type",
                          mimetypes.guess_type(fname)[0] or "application/octet-stream")
         self.send_header("Content-Length", str(len(data)))
+        # R58：迭代期禁缓存——html/js 每次拉最新，避免改版后浏览器还跑旧脚本
+        self.send_header("Cache-Control", "no-cache, must-revalidate")
         self._cors()
         self.end_headers()
         self.wfile.write(data)
@@ -202,6 +318,14 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"rate limited, slow down")
 
+    def _token_denied(self):
+        """R52：token 校验失败统一响应。"""
+        self.send_response(403)
+        self._cors()
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"detail": "invalid or missing X-Workbench-Token"}).encode())
+
     def _read_body(self):
         """读取请求体；超过 MAX_BODY 直接 413 并返回 None。"""
         length = int(self.headers.get("Content-Length") or 0)
@@ -217,6 +341,43 @@ class Handler(BaseHTTPRequestHandler):
         if bucket and not _rate_ok(bucket, self.client_address[0]):
             self._rate_limited()
             return
+        # R52：API 转发通道 token 闸门（限流之后、业务处理之前）
+        if bucket and not _token_ok(self):
+            self._token_denied()
+            return
+        if path == "/v1/channels/switch":
+            # R57 修正：switch 不在 RATE_LIMITS → bucket=None → 通用闸门被跳过；
+            # 必须显式校验 token，否则任何人可重启服务/切换通道
+            if not _token_ok(self):
+                self._token_denied()
+                return
+            length = int(self.headers.get("Content-Length") or 0)
+            body = self.rfile.read(length) if length else b"{}"
+            try:
+                mode = json.loads(body.decode("utf-8")).get("jev", "")
+            except Exception:
+                mode = ""
+            if mode not in ("bocha", "kev"):
+                payload = json.dumps({"ok": False, "detail": "jev must be bocha|kev"}).encode("utf-8")
+                self.send_response(400); self.send_header("Content-Type", "application/json"); self._cors(); self.end_headers(); self.wfile.write(payload)
+                return
+            conf = "/etc/systemd/system/fin-jev.service.d/kev-upstream.conf"
+            content = ("[Service]\nEnvironment=JEV_UPSTREAM=http://100.79.155.126:8011/v1/systemone\n"
+                       if mode == "kev" else "[Service]\n# bocha official\n")
+            try:
+                with open(conf, "w") as _f:
+                    _f.write(content)
+                import subprocess as _sp
+                _sp.run(["sudo", "-n", "systemctl", "daemon-reload"], timeout=10, stdin=subprocess.DEVNULL)
+                _sp.run(["sudo", "-n", "systemctl", "restart", "fin-jev"], timeout=30, stdin=subprocess.DEVNULL)
+                time.sleep(2)  # restart 完成后再返回，保证后续 /v1/channels 读到新状态
+                payload = json.dumps({"ok": True, "jev": mode}, ensure_ascii=False).encode("utf-8")
+                status = 200
+            except Exception as e:
+                payload = json.dumps({"ok": False, "detail": str(e)}).encode("utf-8")
+                status = 500
+            self.send_response(status); self.send_header("Content-Type", "application/json"); self._cors(); self.end_headers(); self.wfile.write(payload)
+            return
         if path == "/v1/recompile":
             self._recompile()
             return
@@ -226,7 +387,7 @@ class Handler(BaseHTTPRequestHandler):
             self._forward_vkb("POST", path[len(VKB_PREFIX):], body)
             return
         if path.startswith("/v1/systemone"):
-            target, fwd = API_URL, opener
+            target, fwd = JEV_UPSTREAM, opener
         elif path.startswith("/v1/glm"):
             target, fwd = GLM_URL, glm_opener
         else:
@@ -316,4 +477,8 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print("Serving duel_chat.html + Jev forwarder at http://127.0.0.1:%d" % PORT)
+    if ACCESS_TOKEN:
+        print("R52: API 转发通道已启用令牌校验（/token.txt 同源下发，2次/60秒）")
+    else:
+        print("R52: 未启用令牌校验（token 文件不可写），行为同旧版")
     ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

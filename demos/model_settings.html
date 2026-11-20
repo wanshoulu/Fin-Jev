@@ -80,7 +80,58 @@ body{
 .foot{font-size:11px; color:var(--ink-4); line-height:1.8; margin-top:6px;}
 </style>
 </head>
-<body>
+<body data-workbench-token-patch="r52">
+<script>
+/* R52 token 注入补丁 v2（R56）：同步拉取 /token.txt（阻塞至拿到令牌），彻底消除启动竞态；
+   包装 fetch 给同源 /v1/ 请求自动附带；403 时自动重拉 token 重试一次 */
+(function(){
+  try{
+    var x=new XMLHttpRequest();
+    x.open("GET","/token.txt",false);  // 同步：阻塞脚本执行直至返回
+    x.send(null);
+    if(x.status===200) window.__wbToken=(x.responseText||"").trim();
+  }catch(e){}
+  if(!window.__wbToken){
+    try{ fetch("/token.txt").then(function(r){return r.text()}).then(function(t){ window.__wbToken=(t||"").trim(); }); }catch(e){}
+  }
+  var _fetch = window.fetch;
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === "string") ? input : (input && input.url) || "";
+      if (url.indexOf("/v1/") === 0){
+        init = init || {};
+        init.headers = init.headers || {};
+        if (init.headers instanceof Headers){ if(!init.headers.has("X-Workbench-Token")) init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+        else if (Array.isArray(init.headers)){ if(!init.headers.some(function(h){return (h[0]||"").toLowerCase()==="x-workbench-token";})) init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+        else if (!init.headers["X-Workbench-Token"]) init.headers["X-Workbench-Token"] = window.__wbToken||"";
+      }
+    }catch(e){}
+    var p = _fetch.call(window, input, init);
+    // 403 兜底：token 可能过期/未取到 → 重拉一次再重试
+    try{
+      return p.then(function(resp){
+        if(resp.status===403 && url.indexOf("/v1/")===0 && !input.__wbRetry){
+          return fetch("/token.txt").then(function(r){return r.text()}).then(function(t){
+            window.__wbToken=(t||"").trim();
+            if(typeof input==="string"){ input = input; }
+            try{
+              init = init || {}; init.headers = init.headers || {};
+              if (init.headers instanceof Headers){ init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+              else if (Array.isArray(init.headers)){ init.headers = init.headers.filter(function(h){return (h[0]||"").toLowerCase()!=="x-workbench-token";}); init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+              else { init.headers["X-Workbench-Token"] = window.__wbToken||""; }
+            }catch(e){}
+            init.__wbRetry = true;
+            return _fetch.call(window, input, init);
+          });
+        }
+        return resp;
+      });
+    }catch(e){ return p; }
+  };
+})();
+</script>
+
+
 <div class="wrap">
   <div class="banner">
     <span class="brand-name">模型配置中心<span class="sub">统一配置 Jev 决策模型 / GLM 对话模型 · 全部演示共享生效</span></span>
@@ -92,6 +143,10 @@ body{
   <div class="card">
     <h2><span class="mtag jev">Jev</span>决策模型（bocha-jev-v1 · 非生成式概率判定）</h2>
     <div class="lead">所有测试台的 noul/choice 判定请求均走此模型；每台 1 次请求并行 4~6 问。</div>
+    <div class="frow"><label>通道</label>
+      <select id="cfg_jev_channel" style="flex:1;min-width:220px;font-family:inherit;font-size:13px;border:1px solid var(--line-1);border-radius:8px;padding:8px 12px;background:#fff;color:var(--ink-1);" onchange="onChanChange()"></select>
+    </div>
+    <div class="note" id="chan_note"></div>
     <div class="frow"><label>模型名</label><input id="cfg_jev_model" type="text" placeholder="bocha-jev-v1"></div>
     <div class="frow"><label>API Key</label><input id="cfg_jev_key" type="password" placeholder="留空 = 走同源代理 BUILTIN_JEV 注入"></div>
     <div class="note">同源访问（8787 / 服务器）时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 注入真实 Key，前端永不落盘真实 Key。<br>file:// 直开时需填入官方 Key（open.bocha.cn 免费注册；仅存于浏览器 localStorage）。直连官方端点 <code>https://jev.bocha.cn/v1/systemone</code>。</div>
@@ -102,11 +157,11 @@ body{
   </div>
 
   <div class="card">
-    <h2><span class="mtag glm">GLM</span>对话大模型（意图识别双引擎 · 结构化输出）</h2>
+    <h2><span class="mtag glm">GLM</span>对话大模型（意图识别双引擎 · 结构化输出 · 兼容任意 OpenAI 风格端点）</h2>
     <div class="lead">意图识别测试台的 LLM 引擎走此模型（JSON 结构化分类）；同源代理端点 <code>/v1/glm</code>。</div>
     <div class="frow"><label>模型名</label><input id="cfg_glm_model" type="text" placeholder="GLM-4.6"></div>
     <div class="frow"><label>API Key</label><input id="cfg_glm_key" type="password" placeholder="留空 = 走同源代理 BUILTIN 注入"></div>
-    <div class="note">同源访问时留空即可：代理用服务器本地 <code>jev_key.local.json</code> 的 GLM Key 注入并转发 <code>open.bigmodel.cn</code>。file:// 直开时需填入自己的 Key（走官方端点直连）。</div>
+    <div class="note">同源访问时留空即可：代理用服务器本地 <code>glm_key.local.json</code> 的 GLM Key 注入并转发（当前配置指向 <code>open.bigmodel.cn</code> 智谱端点，实测返回 <code>glm-5.3-flash</code>）。file:// 直开时需填入自己的 Key（走官方端点直连）。</div>
     <div class="actions">
       <button class="btn glm" onclick="probeGlm()">连通自检</button>
       <span class="health" id="health_glm"></span>
@@ -169,6 +224,61 @@ function loadCfg(){
   }catch(e){}
   document.getElementById("meta").textContent=meta;
 }
+  /* ---- R57：Jev 通道下拉（bocha 官方 / 本机 kev 自训）---- */
+var CHAN_LOADED=false;
+async function loadChannels(){
+  try{
+    var r=await fetch("/v1/channels");
+    if(!r.ok) throw 0;
+    var j=await r.json();
+    var sel=document.getElementById("cfg_jev_channel");
+    sel.innerHTML="";
+    (j.jev&&j.jev.options||[]).forEach(function(o){
+      var op=document.createElement("option");
+      op.value=o.id; op.textContent=o.name;
+      sel.appendChild(op);
+    });
+    sel.value=(j.jev&&j.jev.current)||"bocha";
+    renderChanNote();
+    CHAN_LOADED=true;
+  }catch(e){
+    document.getElementById("chan_note").textContent="通道清单加载失败（同源代理不可用）";
+  }
+}
+function renderChanNote(){
+  var sel=document.getElementById("cfg_jev_channel");
+  var note=document.getElementById("chan_note");
+  if(sel.value==="kev"){
+    note.innerHTML="当前走<b>本机 kev 0.8B</b>（你训练的决策模型，经 Tailscale）。切换会重启服务器代理（约 3-5 秒），工作台全部演示立即生效。注意：本通道慢（4-10s/次）且依赖你电脑开机+Tailscale 在线。";
+  }else{
+    note.innerHTML="当前走<b>博查官方</b> bocha-jev-v1（云托管，0.2-0.4s/次）。Key 留空即可（BUILTIN 注入）。";
+  }
+}
+async function onChanChange(){
+  var sel=document.getElementById("cfg_jev_channel");
+  var target=sel.value;
+  var note=document.getElementById("chan_note");
+  note.textContent="切换中：服务器代理重启中（3-5 秒）…";
+  sel.disabled=true;
+  // switch 会重启代理导致响应中断（net::ERR），因此用 fire-and-forget + 轮询确认
+  fetch("/v1/channels/switch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jev:target})}).catch(function(){});
+  var tries=0;
+  var timer=setInterval(async function(){
+    tries++;
+    try{
+      var r=await fetch("/v1/channels");
+      var j=await r.json();
+      if(j.jev&&j.jev.current===target){
+        clearInterval(timer);
+        sel.disabled=false;
+        note.textContent="✔ 已切换到 "+(target==="kev"?"本机 kev 0.8B":"博查官方")+"（第"+tries+"次确认）";
+        renderChanNote();
+      }
+    }catch(e){ /* 服务重启中，继续轮询 */ }
+    if(tries>15){ clearInterval(timer); sel.disabled=false; note.textContent="切换超时，请刷新页面查看实际状态"; }
+  },1200);
+}
+
 /* ---- 保存：写统一键 finjev_cfg_v1 ---- */
 function saveCfg(){
   var cfg={
@@ -180,7 +290,7 @@ function saveCfg(){
   };
   try{ localStorage.setItem(CFG_STORE,JSON.stringify(cfg)); }
   catch(e){ toast("保存失败：localStorage 不可用"); return; }
-  loadCfg(); toast("已保存，全部演示立即生效");
+loadCfg(); toast("已保存，全部演示立即生效");
 }
 function clearCfg(){
   try{ localStorage.removeItem(CFG_STORE); }catch(e){}
@@ -217,6 +327,7 @@ async function probeGlm(){
   }catch(e){ health("health_glm",false,"请求失败："+(e&&e.message||e)); }
 }
 loadCfg();
+loadChannels();
 </script>
 </body>
 </html>

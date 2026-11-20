@@ -420,7 +420,58 @@ body{
 .toast.show { opacity:1; }
 </style>
 </head>
-<body>
+<body data-workbench-token-patch="r52">
+<script>
+/* R52 token 注入补丁 v2（R56）：同步拉取 /token.txt（阻塞至拿到令牌），彻底消除启动竞态；
+   包装 fetch 给同源 /v1/ 请求自动附带；403 时自动重拉 token 重试一次 */
+(function(){
+  try{
+    var x=new XMLHttpRequest();
+    x.open("GET","/token.txt",false);  // 同步：阻塞脚本执行直至返回
+    x.send(null);
+    if(x.status===200) window.__wbToken=(x.responseText||"").trim();
+  }catch(e){}
+  if(!window.__wbToken){
+    try{ fetch("/token.txt").then(function(r){return r.text()}).then(function(t){ window.__wbToken=(t||"").trim(); }); }catch(e){}
+  }
+  var _fetch = window.fetch;
+  window.fetch = function(input, init){
+    try{
+      var url = (typeof input === "string") ? input : (input && input.url) || "";
+      if (url.indexOf("/v1/") === 0){
+        init = init || {};
+        init.headers = init.headers || {};
+        if (init.headers instanceof Headers){ if(!init.headers.has("X-Workbench-Token")) init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+        else if (Array.isArray(init.headers)){ if(!init.headers.some(function(h){return (h[0]||"").toLowerCase()==="x-workbench-token";})) init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+        else if (!init.headers["X-Workbench-Token"]) init.headers["X-Workbench-Token"] = window.__wbToken||"";
+      }
+    }catch(e){}
+    var p = _fetch.call(window, input, init);
+    // 403 兜底：token 可能过期/未取到 → 重拉一次再重试
+    try{
+      return p.then(function(resp){
+        if(resp.status===403 && url.indexOf("/v1/")===0 && !input.__wbRetry){
+          return fetch("/token.txt").then(function(r){return r.text()}).then(function(t){
+            window.__wbToken=(t||"").trim();
+            if(typeof input==="string"){ input = input; }
+            try{
+              init = init || {}; init.headers = init.headers || {};
+              if (init.headers instanceof Headers){ init.headers.set("X-Workbench-Token", window.__wbToken||""); }
+              else if (Array.isArray(init.headers)){ init.headers = init.headers.filter(function(h){return (h[0]||"").toLowerCase()!=="x-workbench-token";}); init.headers.push(["X-Workbench-Token", window.__wbToken||""]); }
+              else { init.headers["X-Workbench-Token"] = window.__wbToken||""; }
+            }catch(e){}
+            init.__wbRetry = true;
+            return _fetch.call(window, input, init);
+          });
+        }
+        return resp;
+      });
+    }catch(e){ return p; }
+  };
+})();
+</script>
+
+
 <header class="topbar">
   <div class="brand">
     <span class="brand-mark"></span>
@@ -514,7 +565,7 @@ body{
 /* ================= 配置与常量 ================= */
 /* 安全模型：源码不内置任何真实 Key。
    - Jev：首次使用点 ⚙ 填入自己的 Key（open.bocha.cn 免费注册），存浏览器 localStorage，不上传
-   - Qwen：默认内置 Key → 由 nginx /v1/glm 同源转发替换为真实 Key，真实 Key 永不落前端 */
+   - Qwen：默认内置 Key → 由同源代理(jev_proxy) /v1/glm 转发时替换为真实 Key，真实 Key 永不落前端 */
 var KEY_STORE = "duel_chat_keys_v4";
 var CFG = { jevKey: "", jevModel: "bocha-jev-v1", glmKey: "BUILTIN", glmModel: "GLM-4.6" };
 try {
@@ -589,7 +640,7 @@ var jevSelect = null;   /* 本轮 Jev 选题（R46e）：{kept, dropped, full} *
 
 /* 加载编译产物：PROBES/GATE 覆盖 + 图谱树数据。file:// 打开 fetch 失败则用内嵌兜底值 */
 function loadCompiled(){
-  /* R50 修复：此前 fetch 绝对路径 "/probes.compiled.json" —— nginx 下被 SPA fallback 接管返回
+  /* R50 修复：此前 fetch 绝对路径 "/probes.compiled.json" —— 公网服务器下被错误路由接管返回
      HTML → r.json() 解析失败走 catch → GRAPH 恒为 null → 词面锚定全程失效，选题信号只剩向量映射。
      改为相对路径（页面部署在 /jev-review/ 下），编译产物已部署同目录 */
   return fetch("probes.compiled.json").then(function(r){
@@ -663,11 +714,11 @@ function recompileGraph(){
    真实运行期召回：每条消息 query OntoMind 向量库，取 top-k 相似意图片段。
    与 Jev 并行、不阻塞路由；召回片段喂给 Qwen 候选细判作语义邻居证据。 */
 var VKB = {
-  base: "/ontomind/api/v1",
+  base: "/v1/vkb/",   /* R53 修正：转发实际走 jev_proxy /v1/vkb/（原 /ontomind/api/v1 为死配置，从未被消费） */
   kbId: "1cc39caa-2e1c-4898-bceb-275ae01fd6db",   /* 意图语义索引-合一粒度-bank-ccb-mobile-bank-intents */
   name: "意图语义索引（ccb mobile bank intents · 238 条）",
   available: false,                                 /* 由首次健康探测置位 */
-  disabled: false                                   /* QWEN_API_KEY 已配置，向量检索可用 */
+  disabled: false   /* 可用性由首次健康探测置位；服务器端 OntoMind(17386) 未启动时 vkbSearch 返回 502 → 自动降级，不影响路由 */
 };
 function vkbSearch(text, topK){
   if (VKB.disabled) return Promise.resolve([]);
@@ -1018,8 +1069,8 @@ function setChannel(){
   if (sameOriginServer){
     useProxy = true;
     chanBase = "";
-    chanName = "同源代理(nginx)";
-    return Promise.resolve("同源代理(nginx)");
+    chanName = "同源代理(jev_proxy)";
+    return Promise.resolve("同源代理(jev_proxy)");
   }
   /* file:// 本地打开时走官方直连 */
   useProxy = false;
@@ -1151,7 +1202,7 @@ function buildGlmRequest(text, mode, candidates, vecHits, gr){
 function callGlmReal(text, mode, candidates, vecHits, gr){
   var reqBody = buildGlmRequest(text, mode || "full", candidates, vecHits, gr);
   var isCand = reqBody._meta && reqBody._meta.mode === "candidates";
-  // 优先走本地转发器（nginx 替换为真实 Key，无 CORS）；完全探测不到服务器时才直连千问
+  // 优先走同源代理（jev_proxy 替换为真实 Key，无 CORS）；完全探测不到服务器时才直连千问
   var glmViaChan = useProxy && chanBase !== "";
   var url = glmViaChan ? (chanBase + "/v1/glm")
           : sameOriginServer ? "/v1/glm"
@@ -1187,7 +1238,7 @@ function callGlmReal(text, mode, candidates, vecHits, gr){
   });
 }
 function callGlm(text, mode, candidates, vecHits, gr){
-  // glmKey="BUILTIN" 表示用本地服务器内置 Key（nginx /v1/glm 同源转发），走 /v1/glm
+  // glmKey="BUILTIN" 表示用本地服务器内置 Key（jev_proxy /v1/glm 同源转发），走 /v1/glm
   if (!CFG.glmKey) return Promise.resolve(glmBaseline(text));
   var t0 = performance.now();
   return callGlmReal(text, mode, candidates, vecHits, gr).catch(function(err){
