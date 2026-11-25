@@ -800,8 +800,10 @@ function renderNavStep(s){
   else goalLine="目标：「"+esc(gname)+"」 · 第 "+s.step+"/"+(s.max_steps||8)+" 步";
   var stCls=s.done?(s.match?"hit":"err"):"pass";
   var stTxt=s.done?(s.match?"✓ 到达":(STOP_TXT[s.stop_reason]||s.stop_reason||"终止")):"导航中";
-  var idx=Number(document.getElementById("navTimeline").getAttribute("data-n")||0);
-  document.getElementById("navTimeline").setAttribute("data-n",idx+1);
+  var tl=document.getElementById("navTimeline");
+  Array.prototype.forEach.call(tl.querySelectorAll(".pl-st"),function(b){ if(b.textContent==="导航中") b.textContent="已执行"; });
+  var idx=Number(tl.getAttribute("data-n")||0);
+  tl.setAttribute("data-n",idx+1);
   var img=s.observe&&s.observe.image;
   var h='<div class="pl '+stCls+'"><div class="pl-head" onclick="toggleNavDetail('+idx+')">'
     +(img?'<img class="step-shot" src="'+img+'" alt="第'+s.step+'步截图">':'')
