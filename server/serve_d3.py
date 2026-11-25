@@ -127,6 +127,24 @@ def _load_model():
 threading.Thread(target=_load_model, daemon=True).start()
 
 
+def _fit_image(path):
+    """降采样到最长边 960 后另存临时文件（与训练同分布、省显存提速）。
+
+    返回新路径；无需缩放时返回 None（沿用原图）。调用方负责删除返回的临时文件。
+    """
+    from PIL import Image
+    im = Image.open(path).convert("RGB")
+    w, h = im.size
+    s = 960 / max(w, h)
+    if s >= 1:
+        return None
+    im = im.resize((round(w * s), round(h * s)), Image.LANCZOS)
+    fd, out = tempfile.mkstemp(suffix=".jpg")
+    os.close(fd)
+    im.save(out, "JPEG", quality=90)
+    return out
+
+
 def _decode_image(payload):
     """dataURL 或裸 base64 → 临时文件路径。"""
     if not isinstance(payload, str) or not payload:
@@ -245,6 +263,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         tmp_path = None
+        fit_tmp = None
         try:
             if body.get("shot"):
                 name = pathlib.Path(body["shot"]).name  # 防目录穿越，只取文件名
@@ -258,6 +277,10 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json(400, {"detail": "需要 shot（内置截图名）或 image（base64）"})
                 return
+
+            fit_tmp = _fit_image(img_path)
+            if fit_tmp:
+                img_path = fit_tmp
 
             t0 = time.time()
             with _gpu_lock:
@@ -279,6 +302,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:  # noqa: BLE001
             self._json(500, {"detail": f"{type(exc).__name__}: {exc}"})
         finally:
+            for extra in (fit_tmp,):
+                if extra:
+                    try:
+                        os.remove(extra)
+                    except OSError:
+                        pass
             if tmp_path:
                 try:
                     os.remove(tmp_path)
