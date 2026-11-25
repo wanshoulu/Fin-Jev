@@ -48,6 +48,11 @@ VKB_BASE = "http://127.0.0.1:17386/ontomind/api/v1/vector-kb/"
 D3_PREFIX = "/v1/d3"
 D3_BASE = os.environ.get("D3_BASE", "http://127.0.0.1:8788")
 
+# 连续导航服务（serve_nav.js）：第 6 应用行动环后端，/v1/nav* 前缀转发
+# （headless Edge 步进导航 + d3 三题观察，仅本地可跑；navstep 含推理，超时放宽到 180s）
+NAV_PREFIX = "/v1/nav"
+NAV_BASE = os.environ.get("NAV_BASE", "http://127.0.0.1:8789")
+
 # GLM 配置：优先读 glm_key.local.json（已验证可用的 coding 端点 + Key）
 _glm_cfg_path = os.path.join(ROOT, "glm_key.local.json")
 GLM_URL = "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
@@ -148,6 +153,10 @@ RATE_LIMITS = {
     "/v1/recompile": (2, 60),
     "/v1/vkb": (60, 60),
     "/v1/d3route": (30, 60),
+    # 连续导航：start 建会话（Edge 启动较贵）、step 高频步进、close 会话回收
+    "/v1/navstart": (10, 60),
+    "/v1/navstep": (60, 60),
+    "/v1/navclose": (30, 60),
 }
 _rate_bucket = {}
 
@@ -277,6 +286,16 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._forward_d3("GET", path, None)
             return
+        # 连续导航 GET（healthz 探测）：与 d3 同款 rate + token 闸门
+        if path.startswith(NAV_PREFIX):
+            if not _rate_ok("/v1/navclose", self.client_address[0]):
+                self._rate_limited()
+                return
+            if not _token_ok(self):
+                self._token_denied()
+                return
+            self._forward_nav("GET", path, None)
+            return
         if path in ("/", "/index.html"):
             # 仓库布局：页面在 demos/ 子目录；平面布局：与本文件同目录
             # 根路径 = Fin-Jev 工作台（左栏切换 意图识别 / 语义路由）
@@ -405,6 +424,11 @@ class Handler(BaseHTTPRequestHandler):
             if body is None: return
             self._forward_d3("POST", path, body)
             return
+        if path.startswith(NAV_PREFIX):
+            body = self._read_body()
+            if body is None: return
+            self._forward_nav("POST", path, body)
+            return
         if path.startswith("/v1/systemone"):
             target, fwd = JEV_UPSTREAM, opener
         elif path.startswith("/v1/glm"):
@@ -503,6 +527,26 @@ class Handler(BaseHTTPRequestHandler):
             payload, status = e.read(), e.code
         except Exception as e:  # noqa: BLE001
             payload = json.dumps({"detail": "d3 forwarder error: %s" % e}).encode("utf-8")
+            status = 502
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _forward_nav(self, method, path, body):
+        """转发连续导航服务：/v1/nav* → serve_nav.js（navstep 含截图+推理+点击，超时 180s）"""
+        target = NAV_BASE + path
+        req = urllib.request.Request(
+            target, data=body if method == "POST" else None, method=method,
+            headers={"Content-Type": "application/json"})
+        try:
+            with opener.open(req, timeout=180) as resp:
+                payload, status = resp.read(), resp.status
+        except urllib.error.HTTPError as e:
+            payload, status = e.read(), e.code
+        except Exception as e:  # noqa: BLE001
+            payload = json.dumps({"detail": "nav forwarder error: %s" % e}).encode("utf-8")
             status = 502
         self.send_response(status)
         self.send_header("Content-Type", "application/json")

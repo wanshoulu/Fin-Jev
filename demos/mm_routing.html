@@ -201,6 +201,22 @@ body{
   transition:all .2s; z-index:50; max-width:80vw;
 }
 #toast.show{opacity:1; transform:translate(-50%,0);}
+/* ---- 连续导航 ---- */
+.mode-sw{display:flex; gap:6px; margin-left:auto; align-items:center;}
+.mode-sw .chip{padding:4px 14px;}
+.mode-bar{display:flex; align-items:center; gap:12px; padding:10px 16px;}
+.mode-bar .mode-sw{margin-left:0;}
+.nav-input{
+  flex:1; min-width:200px; font-family:inherit; font-size:13px; color:var(--ink-1); background:#fff;
+  border:0.5px solid var(--line-1); border-radius:8px; padding:8px 12px; outline:none;
+  transition:border-color .15s;
+}
+.nav-input:focus{border-color:var(--d3);}
+.step-shot{
+  width:50px; height:88px; object-fit:cover; object-position:top; flex:none; cursor:pointer;
+  border-radius:6px; border:0.5px solid var(--line-1); background:var(--bg);
+}
+.step-big{max-width:264px; border-radius:10px; border:0.5px solid var(--line-1); display:block; margin:2px 0 8px;}
 @media (max-width:1080px){ .main{grid-template-columns:1fr;} .phone{margin-left:0;} }
 </style>
 </head>
@@ -266,7 +282,11 @@ body{
 
 <div class="main">
   <div class="colL">
-    <div class="card">
+    <div class="card mode-bar" id="modeBar">
+      <span class="mode-sw"><button class="chip on" id="modeStep" onclick="setMode('step')">单步判定</button><button class="chip" id="modeNav" onclick="setMode('nav')">连续导航</button></span>
+      <span class="tip">单步判定：一张截图 → 三题路由裁决 · 连续导航：一句话 → observe·act 循环直到到达目标页</span>
+    </div>
+    <div class="card" id="shotCard">
       <h2>截图接入 <span class="n">选择内置 mock 截图或上传本机 App 截图 · 点击「开始路由」</span></h2>
       <div class="chips" id="chips"></div>
       <div class="shot-area">
@@ -289,7 +309,29 @@ body{
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="navCard" style="display:none">
+      <h2>连续导航 <span class="n">一句话 → 目标锚定 → observe（截图+三题）· act（点击）循环 → 到达目标页</span></h2>
+      <div class="shot-area">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="ph-empty" id="navPhEmpty">输入一句话开始导航<br>每步实时展示 mock App 截图</div>
+          <img id="navShotImg" alt="导航实时截图" style="display:none">
+        </div>
+        <div class="shot-meta">
+          <div class="desc" id="navStatus">导航服务检测中…</div>
+          <div class="inrow">
+            <input class="nav-input" id="navInput" placeholder="说出你要办理的事情，例如：我要交燃气费" onkeydown="if(event.key==='Enter')runNav()">
+            <button class="btn primary" id="navGo" onclick="runNav()">开 始 导 航</button>
+            <button class="btn" id="navStop" onclick="stopNav()" style="display:none">停 止</button>
+          </div>
+          <div class="chips" id="navChips"></div>
+          <div class="tip">导航在本地 headless Edge 打开 mock 手机银行（:3000），每步：截图 → d3 三题判定 → 按裁决点击 → 再截图；最多 8 步，到达目标页即停。导航服务未运行时自动降级为预置路径模拟（标注「模拟」）。</div>
+        </div>
+      </div>
+      <div id="navTimeline" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card" id="pipeCard">
       <h2>多模态路由管道 <span class="n">L0 截图接入 → L1 三题并行判定 → L2 路由裁决 · 点击节点展开报文</span></h2>
       <div id="pipe"></div>
     </div>
@@ -604,6 +646,8 @@ function resetAll(){
   document.getElementById("detail").innerHTML='<div class="empty">尚未判定</div>';
   document.getElementById("arch").innerHTML='<div class="empty">选择内置截图后展示档案与对照</div>';
   document.getElementById("demoFlag").className="demo-flag";
+  document.getElementById("navTimeline").innerHTML="";
+  setNavShot(null);
 }
 
 /* ================= 主流程 ================= */
@@ -662,10 +706,227 @@ async function runRoute(){
   }
 }
 
+/* ================= 连续导航（一句话 → 目标锚定 → observe·act 循环 → 到达目标页） ================= */
+var navMode="step", navBase="", navRunning=false, navAC=null, NAV_GOAL_NAME="";
+if(location.protocol!=="http:"&&location.protocol!=="https:") navBase="http://127.0.0.1:8789"; // file:// 直连 serve_nav（CORS 已放开）
+var STOP_TXT={arrived:"到达目标",abnormal:"页面异常",no_route:"无可用动作",no_progress:"页面无进展",max_steps:"步数上限",act_failed:"点击失败"};
+var NAV_SENTS=["给张伟转账1000元","我要交燃气费","查一下账户余额","看看龙钱宝","我的卡丢了"];
+/* 模拟降级用：5 条预置路径（截图序列 + 每步动作文案），与 serve_nav 策略表同源 */
+var NAV_INTENTS=[
+ {key:"transfer",kw:["转账","张伟","汇款"],label:"转账汇款",desc:"给张伟转账 1000 元（任务计划待本人确认）",goalName:"转账任务计划（智能服务屏）",leaf:"demo.transfer.peer",
+  path:["ai-bank-01-home.jpg","ai-bank-02-transfer-remittance-feature.jpg","ai-bank-03-transfer-task-plan-form.jpg"],
+  acts:["点击首页「转账汇款」宫格入口","点击「向张伟转账 ¥1,000」进入任务计划"]},
+ {key:"utility",kw:["缴费","燃气","话费","水电","交费"],label:"生活缴费",desc:"查看待缴账单（燃气费/话费）",goalName:"待缴账单列表",leaf:"demo.utility.pay",
+  path:["ai-bank-01-home.jpg","ai-bank-04-life-payment-feature.jpg","ai-bank-05-pending-bills-list.jpg"],
+  acts:["点击首页「生活缴费」宫格入口","点击「待缴账单」二级服务"]},
+ {key:"account",kw:["余额","账户","查账","明细"],label:"账户查询",desc:"查看工资卡余额与账户明细",goalName:"账户查询（工资卡总览）",leaf:"demo.account.query",
+  path:["ai-bank-01-home.jpg","ai-bank-07-account-overview.jpg"],
+  acts:["点击首页「账户查询」入口"]},
+ {key:"wealth",kw:["理财","龙钱宝","财富","收益"],label:"理财",desc:"进入财富频道查看龙钱宝",goalName:"财富频道（龙钱宝）",leaf:"demo.wealth.buy",
+  path:["ai-bank-01-home.jpg","ai-bank-06-longqianbao-wealth.jpg"],
+  acts:["点击底部导航「财富」频道"]},
+ {key:"loss",kw:["挂失","丢卡","信用卡"],label:"挂失止付",desc:"进入卡片管理挂失入口（域级判定）",goalName:"卡片管理（挂失入口）",leaf:"demo.loss_fraud",
+  path:["ai-bank-01-home.jpg","ai-bank-08-card-management-guashi-entry.jpg"],
+  acts:["点击底部导航「信用卡」频道","点击「卡片管理」服务"]}
+];
+function nowTs(){ return new Date().toLocaleTimeString("zh-CN",{hour12:false}); }
+function sleep(ms){ return new Promise(function(r){ setTimeout(r,ms); }); }
+function initNavChips(){
+  var h="";
+  NAV_SENTS.forEach(function(s,i){ h+='<button class="chip" onclick="pickNavSentence('+i+')">'+esc(s)+'</button>'; });
+  document.getElementById("navChips").innerHTML=h;
+}
+function pickNavSentence(i){ document.getElementById("navInput").value=NAV_SENTS[i]; }
+function setMode(m){
+  navMode=m;
+  document.getElementById("shotCard").style.display=m==="step"?"":"none";
+  document.getElementById("pipeCard").style.display=m==="step"?"":"none";
+  document.getElementById("navCard").style.display=m==="nav"?"":"none";
+  document.getElementById("modeStep").classList.toggle("on",m==="step");
+  document.getElementById("modeNav").classList.toggle("on",m==="nav");
+  if(m==="nav") probeNav();
+}
+function setNavShot(dataURL){
+  var img=document.getElementById("navShotImg"), em=document.getElementById("navPhEmpty");
+  if(dataURL){ img.src=dataURL; img.style.display="block"; em.style.display="none"; }
+  else{ img.removeAttribute("src"); img.style.display="none"; em.style.display="flex"; }
+}
+function navStatus(html,err){
+  var el=document.getElementById("navStatus");
+  el.innerHTML=html; el.style.color=err?"#b45309":"";
+}
+async function probeNav(){
+  try{
+    var r=await fetch((navBase||"")+"/v1/navhealthz",{cache:"no-store"});
+    var d=await r.json();
+    navOK=r.ok&&d.ok;
+    navStatus(navOK
+      ?("导航服务可用（headless Edge + d3 三题 · 会话 "+(d.sessions||0)+"/"+(d.max_sessions||2)+"）· 输入一句话开始")
+      :("导航服务异常（"+esc(d.error||"playwright 未就绪")+"）· 点击「开始导航」将走本地模拟"));
+  }catch(e){
+    navOK=false;
+    navStatus("导航服务不可达（serve_nav.js 未运行）· 点击「开始导航」将走本地模拟导航（预置路径 + 本地基线）");
+  }
+}
+async function navFetch(path,payload,noAbort){
+  var r=await fetch((navBase||"")+path,{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(payload),
+    signal:(!noAbort&&navAC&&navAC.signal)?navAC.signal:undefined});
+  var txt=await r.text(), data=null;
+  try{ data=JSON.parse(txt); }catch(e){}
+  var ok=r.status>=200&&r.status<300;
+  return {ok:ok,code:r.status,data:data,err:ok?null:((data&&data.detail)||("HTTP "+r.status+" "+String(txt).slice(0,160)))};
+}
+function toggleNavDetail(i){ var el=document.getElementById("nsd_"+i); if(el) el.classList.toggle("open"); }
+function renderNavStep(s){
+  var tl=document.getElementById("navTimeline");
+  var em=tl.querySelector(".empty"); if(em) em.remove();
+  var v=s.observe&&s.observe.verdict;
+  var vLine;
+  if(v){
+    vLine="d3：域 "+(v.domain?(DOM_NAMES[v.domain]||v.domain):"无")
+      +" · 场景 "+(SCENE_NAMES[v.scene]||v.scene||"无")
+      +" · 页面"+(v.page_state?"正常":"异常")
+      +(typeof v.conf==="number"?(" · 裁决「"+v.label+"」 p="+fmt(v.conf)):(" · 裁决「"+v.label+"」"));
+  }else if(s.observe&&s.observe.degraded){
+    vLine="d3 不可用（"+esc(s.observe.d3_error||"服务未响应")+"）· 按页面状态确定性导航";
+  }else{ vLine="—"; }
+  var actLine=s.action?("动作 → "+esc(s.action.desc)+(s.action.error?"（失败："+esc(s.action.error)+"）":"")):"";
+  var gname=(s.target&&s.target.goal_name)||NAV_GOAL_NAME||"目标页";
+  var goalLine;
+  if(s.done&&s.match) goalLine="✓ 已到达目标页「"+esc(s.state_name)+"」";
+  else if(s.done) goalLine="终止："+esc(STOP_TXT[s.stop_reason]||s.stop_reason||"未到达");
+  else goalLine="目标：「"+esc(gname)+"」 · 第 "+s.step+"/"+(s.max_steps||8)+" 步";
+  var stCls=s.done?(s.match?"hit":"err"):"pass";
+  var stTxt=s.done?(s.match?"✓ 到达":(STOP_TXT[s.stop_reason]||s.stop_reason||"终止")):"导航中";
+  var idx=Number(document.getElementById("navTimeline").getAttribute("data-n")||0);
+  document.getElementById("navTimeline").setAttribute("data-n",idx+1);
+  var img=s.observe&&s.observe.image;
+  var h='<div class="pl '+stCls+'"><div class="pl-head" onclick="toggleNavDetail('+idx+')">'
+    +(img?'<img class="step-shot" src="'+img+'" alt="第'+s.step+'步截图">':'')
+    +'<span class="pl-tag">S'+s.step+'</span>'
+    +'<span class="pl-name">'+esc(s.state_name)+(s.demo?' <span class="g-kind">模拟</span>':'')+'</span>'
+    +'<span class="pl-st '+stCls+'">'+stTxt+'</span>'
+    +'<span class="pl-ms">'+(s.elapsed_ms!=null?s.elapsed_ms+" ms":"")+'</span></div>'
+    +'<p class="pl-brief">观察：'+vLine+(actLine?"　｜　"+actLine:"")+'</p>'
+    +'<p class="pl-brief" style="color:var(--ink-2)">'+goalLine+'</p>'
+    +'<div class="pl-detail" id="nsd_'+idx+'">'+(img?'<img class="step-big" src="'+img+'" alt="第'+s.step+'步大图">':'')
+    +'<pre>'+esc(JSON.stringify({step:s.step,state:s.state,verdict:v,action:s.action,stop_reason:s.stop_reason||undefined,demo:s.demo||undefined},null,1))+'</pre></div></div>';
+  if(!s.done) h+='<div class="pl-arrow">▼</div>';
+  tl.insertAdjacentHTML("beforeend",h);
+}
+function renderNavSummary(target,steps,done,match,stopReason,v,ms,demo){
+  var cls=match?"pass":(stopReason==="abnormal"?"block":"warn");
+  var label=match?("✓ 导航到达 · "+esc(target?target.label:"目标"))
+    :(stopReason==="abnormal"?"导航终止 · 页面异常":"导航终止 · "+esc(STOP_TXT[stopReason]||stopReason||"未到达"));
+  var h='<div class="verdict"><span class="v-badge '+cls+'">'+label+'</span>'
+    +'<span class="v-sub">'+steps+' 步 · '+(Math.round(ms/100)/10)+'s'+(demo?" · 本地模拟":"")+'</span></div>';
+  if(target){
+    h+='<div class="intent-path"><span class="intent-chip">一句话</span><span class="intent-arrow">→</span>'
+      +'<span class="intent-chip">'+esc(target.label)+'</span><span class="intent-arrow">→</span>'
+      +'<span class="intent-chip mono">'+esc(target.goal_name)+'</span></div>';
+  }
+  if(v){
+    h+='<div class="conf-row">到达页 d3 观察：域 '+(v.domain?(DOM_NAMES[v.domain]||v.domain):"无")
+      +' · 场景 '+(SCENE_NAMES[v.scene]||v.scene||"无")
+      +' · 页面'+(v.page_state?"正常":"异常");
+    if(target&&target.leaf) h+=' · 目标 leaf '+esc(target.leaf)+(v.scene===target.leaf?' <span class="cmp ok">✓ 匹配</span>':"");
+    h+='</div>';
+  }
+  document.getElementById("rep").innerHTML=h;
+  document.getElementById("demoFlag").className="demo-flag"+(demo?" show":"");
+}
+async function runNav(){
+  var sentence=(document.getElementById("navInput").value||"").trim();
+  if(!sentence){ toast("请输入一句话描述要办理的事情"); return; }
+  var go=document.getElementById("navGo"), stop=document.getElementById("navStop");
+  go.disabled=true; stop.style.display="";
+  navRunning=true;
+  navAC=(typeof AbortController!=="undefined")?new AbortController():null;
+  document.getElementById("navTimeline").innerHTML='<div class="empty">导航启动中…（headless Edge 打开 mock 手机银行 :3000）</div>';
+  setNavShot(null);
+  var t0=Date.now(), sess=null, steps=0, done=false, match=false, stopReason=null, demo=false, target=null, lastV=null;
+  try{
+    var r0=await navFetch("/v1/navstart",{sentence:sentence});
+    if(!r0.ok){
+      if(r0.code===400||r0.code===429){ navStatus("无法开始导航："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）"); return; }
+      throw {demo:true};
+    }
+    sess=r0.data.session_id; target=r0.data.target;
+    NAV_GOAL_NAME=target.goal_name;
+    navStatus("目标锚定：<b>"+esc(target.label)+"</b> · "+esc(target.desc)+"（目标页："+esc(target.goal_name)+"） · 最多 "+r0.data.max_steps+" 步");
+    while(navRunning){
+      var r=await navFetch("/v1/navstep",{session_id:sess});
+      if(!r.ok){ navStatus("导航中断：navstep 失败（HTTP "+r.code+" · "+esc(r.err)+"）",true); break; }
+      var d=r.data;
+      steps=d.step; done=d.done; match=d.match; stopReason=d.stop_reason||stopReason;
+      if(d.observe&&d.observe.verdict) lastV=d.observe.verdict;
+      if(d.observe&&d.observe.image) setNavShot(d.observe.image);
+      renderNavStep(d);
+      if(d.done) break;
+    }
+    renderNavSummary(target,steps,done,match,stopReason,lastV,Date.now()-t0,demo);
+    addLog({ts:nowTs(),nav:true,sentence:sentence,target:target?target.label:null,steps:steps,
+      done:done,match:match,stop_reason:stopReason,demo:demo||undefined});
+    if(match) navStatus("导航完成 · "+steps+" 步 · 到达「"+esc(target.goal_name)+"」");
+    else if(done) navStatus("导航终止："+esc(STOP_TXT[stopReason]||stopReason||"未到达"),true);
+  }catch(e){
+    if(e&&e.name==="AbortError"){ navStatus("导航已中止",true); }
+    else{ demo=true; await simulateNav(sentence); }   /* nav 服务不可达 → 本地模拟导航 */
+  }finally{
+    if(sess){ try{ navFetch("/v1/navclose",{session_id:sess},true); }catch(_e){} }
+    navRunning=false; go.disabled=false; stop.style.display="none";
+    if(navAC){ try{navAC.abort();}catch(_e){} navAC=null; }
+  }
+}
+function stopNav(){ navRunning=false; if(navAC){ try{navAC.abort();}catch(e){} } }
+/* 本地模拟导航：按意图查预置路径表，逐页 localBaseline 出裁决 + PAGES 截图，同一套步骤 UI（标「模拟」） */
+async function simulateNav(sentence){
+  var target=null;
+  for(var i=0;i<NAV_INTENTS.length;i++){
+    var t=NAV_INTENTS[i];
+    if(t.kw.some(function(k){ return sentence.indexOf(k)>=0; })){ target=t; break; }
+  }
+  if(!target){
+    navStatus("未识别意图。演示支持："+NAV_INTENTS.map(function(t){ return t.label+"（含「"+t.kw.join("/")+"…」）"; }).join("；"),true);
+    toast("演示支持 5 个意图：转账 / 缴费 / 账户 / 理财 / 挂失");
+    return;
+  }
+  NAV_GOAL_NAME=target.goalName;
+  navStatus("目标锚定：<b>"+esc(target.label)+"</b> · "+esc(target.desc)+"（目标页："+esc(target.goalName)+"） · 本地模拟导航");
+  document.getElementById("navTimeline").innerHTML="";
+  var t0=Date.now();
+  for(var i=0;i<target.path.length;i++){
+    if(!navRunning) return;
+    var p=null;
+    for(var j=0;j<PAGES.length;j++){ if(PAGES[j].f===target.path[i]){ p=PAGES[j]; break; } }
+    var rt=jsRoute(localBaseline(p));
+    var isLast=i===target.path.length-1;
+    var act=!isLast?target.acts[i]:null;
+    setNavShot("screenshots/"+p.f);
+    await sleep(i===0?500:900);
+    if(!navRunning) return;
+    renderNavStep({step:i+1,max_steps:8,state:p.id,state_name:p.name,
+      observe:{image:"screenshots/"+p.f,verdict:{domain:rt.domain,scene:rt.scene,page_state:rt.page_state,
+        action:rt.action,label:rt.label,intent_id:rt.intent_id,conf:rt.conf},degraded:false,demo:true},
+      action:act?{desc:act}:null, done:isLast, match:isLast, stop_reason:isLast?"arrived":null,
+      target:{label:target.label,goal_name:target.goalName}, demo:true});
+    if(isLast){
+      renderNavSummary({label:target.label,goal_name:target.goalName,leaf:target.leaf},
+        target.path.length,true,true,"arrived",rt,Date.now()-t0,true);
+      addLog({ts:nowTs(),nav:true,sentence:sentence,target:target.label,steps:target.path.length,
+        done:true,match:true,stop_reason:"arrived",demo:true});
+      navStatus("导航完成（本地模拟） · "+target.path.length+" 步 · 到达「"+esc(target.goalName)+"」");
+    }
+  }
+}
+
 /* ================= 启动 ================= */
 setChannel();
 initChips();
 renderPipe();
+initNavChips();
 selfTest(true);
 </script>
 </body>
