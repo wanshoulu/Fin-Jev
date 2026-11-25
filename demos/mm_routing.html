@@ -574,17 +574,16 @@ async function runRoute(){
     setPl(0,"hit","就绪",0,srcName+(page?(" · "+page.id):" · 无注册档案"),
       "截图输入：\n· 来源："+srcName+"\n· 文件/名称："+(cur.mode==="shot"?page.f:cur.name)+"\n· 模型输入：图像(base64/文件) + 客服消息上下文 state\n· questions：domain(choice 6) / scene(choice 7) / page_state(noul)");
     var out=null;
-    if(d3OK||chanBase!==""){
-      var payload=cur.mode==="shot"?{shot:page.f,name:page.id}:{image:cur.dataURL,name:cur.name};
-      var r=await callD3(payload);
-      if(r.ok){ out=r.data; }
-      else if(cur.mode==="shot"&&!(r.code===503)){
-        setPl(1,"err","服务不可用",null,null,"d3 调用失败：HTTP "+r.code+" "+r.err+"\n→ 降级本地基线模拟");
-        out={demo:true,answers:localBaseline(page),ms:0};
-      }else{
-        setPl(1,"err","失败",null,null,"d3 调用失败：HTTP "+r.code+" "+r.err+(r.code===503?"\n（模型加载中，稍后自检再试）":""));
-        toast("d3 调用失败：HTTP "+r.code);
-      }
+    var payload=cur.mode==="shot"?{shot:page.f,name:page.id}:{image:cur.dataURL,name:cur.name};
+    var r=await callD3(payload);
+    if(r.ok){ out=r.data; }
+    else if(cur.mode==="shot"&&r.code!==503){
+      setPl(1,"err","服务不可用",null,null,"d3 调用失败：HTTP "+r.code+" "+r.err+"\n→ 降级本地基线模拟");
+      out={demo:true,answers:localBaseline(page),ms:0};
+    }else{
+      setPl(1,"err","失败",null,null,"d3 调用失败：HTTP "+r.code+" "+r.err+(r.code===503?"\n（模型加载中，稍后自检再试）":""));
+      document.getElementById("rep").innerHTML='<div class="empty">判定失败：HTTP '+r.code+' —— '+esc(r.err)+(r.code===503?'（模型加载中，稍候自检后重试）':'')+'</div>';
+      toast("d3 调用失败：HTTP "+r.code);
     }
     if(out){
       var demo=!!out.demo, rt=jsRoute(out.answers), ms=out.ms||0;
