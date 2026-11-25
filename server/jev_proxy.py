@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 jev_proxy.py — 本地一体化服务器（静态页面 + Jev API 同源转发）
 解决浏览器直调 https://jev.bocha.cn 遇到的 CORS / 系统代理拦截问题。
@@ -44,6 +44,10 @@ GRAPH_COMPILER = os.path.join(ROOT, "graph_to_probes.py")
 VKB_PREFIX = "/v1/vkb/"
 VKB_BASE = "http://127.0.0.1:17386/ontomind/api/v1/vector-kb/"
 
+# 多模态 JEV 推理服务（serve_d3.py）：第 6 应用「截图路由测试台」后端，/v1/d3* 前缀转发
+D3_PREFIX = "/v1/d3"
+D3_BASE = os.environ.get("D3_BASE", "http://127.0.0.1:8788")
+
 # GLM 配置：优先读 glm_key.local.json（已验证可用的 coding 端点 + Key）
 _glm_cfg_path = os.path.join(ROOT, "glm_key.local.json")
 GLM_URL = "https://open.bigmodel.cn/api/coding/paas/v4/chat/completions"
@@ -74,7 +78,7 @@ opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 # GLM 转发走系统默认网络（智谱无代理问题时的直连 opener）
 glm_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
-ALLOWED_EXT = {".html", ".js", ".css", ".svg", ".png", ".ico"}
+ALLOWED_EXT = {".html", ".js", ".css", ".svg", ".png", ".ico", ".jpg", ".jpeg", ".webp"}
 # .json 只放行图谱编译产物（防止公网直接下载 jev_key.local.json 等敏感文件）
 ALLOWED_JSON = "probes.compiled.json"
 
@@ -134,8 +138,8 @@ def _token_ok(handler):
     supplied = handler.headers.get("X-Workbench-Token", "")
     return secrets.compare_digest(supplied, ACCESS_TOKEN)
 
-# POST body 上限（字节）
-MAX_BODY = 2 * 1024 * 1024
+# POST body 上限（字节）；12MB 以容纳 mm_routing 上传截图的 base64
+MAX_BODY = 12 * 1024 * 1024
 
 # 固定窗口限流：{路径桶: (窗口内最大次数, 窗口秒)}；/v1/vkb 为前缀桶
 RATE_LIMITS = {
@@ -143,6 +147,7 @@ RATE_LIMITS = {
     "/v1/glm": (30, 60),
     "/v1/recompile": (2, 60),
     "/v1/vkb": (60, 60),
+    "/v1/d3route": (30, 60),
 }
 _rate_bucket = {}
 
@@ -262,6 +267,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._token_denied()
                 return
             self._forward_vkb("GET", path[len(VKB_PREFIX):], None)
+            return
+        if path.startswith(D3_PREFIX):
+            if not _rate_ok("/v1/d3route", self.client_address[0]):
+                self._rate_limited()
+                return
+            self._forward_d3("GET", path, None)
             return
         if path in ("/", "/index.html"):
             # 仓库布局：页面在 demos/ 子目录；平面布局：与本文件同目录
@@ -386,6 +397,11 @@ class Handler(BaseHTTPRequestHandler):
             if body is None: return
             self._forward_vkb("POST", path[len(VKB_PREFIX):], body)
             return
+        if path.startswith(D3_PREFIX):
+            body = self._read_body()
+            if body is None: return
+            self._forward_d3("POST", path, body)
+            return
         if path.startswith("/v1/systemone"):
             target, fwd = JEV_UPSTREAM, opener
         elif path.startswith("/v1/glm"):
@@ -464,6 +480,26 @@ class Handler(BaseHTTPRequestHandler):
             payload, status = e.read(), e.code
         except Exception as e:  # noqa: BLE001
             payload = json.dumps({"detail": "vkb forwarder error: %s" % e}).encode("utf-8")
+            status = 502
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _forward_d3(self, method, path, body):
+        """转发多模态 JEV 推理服务：/v1/d3* → serve_d3.py（d3-lite 加载/推理较慢，超时放宽到 180s）"""
+        target = D3_BASE + path
+        req = urllib.request.Request(
+            target, data=body if method == "POST" else None, method=method,
+            headers={"Content-Type": "application/json"})
+        try:
+            with opener.open(req, timeout=180) as resp:
+                payload, status = resp.read(), resp.status
+        except urllib.error.HTTPError as e:
+            payload, status = e.read(), e.code
+        except Exception as e:  # noqa: BLE001
+            payload = json.dumps({"detail": "d3 forwarder error: %s" % e}).encode("utf-8")
             status = 502
         self.send_response(status)
         self.send_header("Content-Type", "application/json")

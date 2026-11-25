@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多模态截图路由测试台 · Fin-Jev</title>
+<link rel="icon" href="favicon.ico">
+<style>
+:root{
+  --ink-1:#17181c; --ink-2:#3d4048; --ink-3:#787e88; --ink-4:#a3a8b0;
+  --line-1:#e3e7e4; --line-2:#eef1ee;
+  --bg:#f4f6f3; --card:#ffffff;
+  --jev:#0e7a5f; --jev-bg:#ecf6f2;
+  --glm:#5b4fc7; --glm-bg:#efedfb;
+  --amber:#b45309; --amber-bg:#fdf3e0;
+  --red:#b91c1c; --red-bg:#fdeaea;
+  --d3:#0e7490; --d3-bg:#e6f6f9;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:"PingFang SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  background:var(--bg); color:var(--ink-1);
+  font-size:14px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+/* ---- 顶栏 ---- */
+.topbar{
+  background:linear-gradient(90deg,#13211b 0%,#1c2f27 100%);
+  color:#fff; padding:13px 20px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:center; gap:11px; min-width:0; flex-wrap:wrap;}
+.brand-mark{
+  width:24px; height:24px; border-radius:7px; flex:0 0 24px;
+  background:linear-gradient(135deg,var(--d3) 0 55%,var(--jev) 55% 100%);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+.brand-name{font-size:15px; font-weight:700; letter-spacing:.01em; white-space:nowrap;}
+.brand-name .sub{font-size:11px; color:rgba(255,255,255,.55); font-weight:400; margin-left:10px; letter-spacing:0;}
+.btns{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;}
+.btn{
+  font-family:inherit; font-size:12px; cursor:pointer; white-space:nowrap;
+  background:#fff; color:var(--ink-2); border:0.5px solid var(--line-1);
+  border-radius:8px; padding:7px 16px; transition:all .15s;
+}
+.btn:hover{border-color:var(--ink-4);}
+.btn:focus-visible{outline:2px solid var(--d3); outline-offset:2px;}
+.btn:disabled{opacity:.5; cursor:not-allowed;}
+.btn.dark{background:rgba(255,255,255,.1); color:#fff; border-color:rgba(255,255,255,.18);}
+.btn.dark:hover{background:rgba(255,255,255,.18);}
+.btn.primary{background:var(--jev); color:#fff; border-color:var(--jev); font-weight:600; padding:9px 26px; font-size:13px;}
+.btn.primary:hover:not(:disabled){background:#0c5c48;}
+.btn.upload{position:relative; overflow:hidden;}
+.btn.upload input{position:absolute; inset:0; opacity:0; cursor:pointer;}
+/* ---- 通道条 ---- */
+#netbar{
+  background:var(--card); border-bottom:0.5px solid var(--line-1);
+  padding:8px 20px; font-size:12px; color:var(--ink-3);
+}
+#netbar b{color:var(--ink-1); font-weight:600;}
+/* ---- 布局 ---- */
+.main{display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:14px; padding:14px 16px 46px; align-items:start; max-width:1560px; margin:0 auto;}
+.colL,.colR{display:flex; flex-direction:column; gap:14px; min-width:0;}
+.card{
+  background:var(--card); border:1px solid rgba(23,24,28,.07);
+  border-radius:12px; padding:14px 16px;
+  box-shadow:0 1px 2px rgba(23,24,28,.04);
+}
+.card h2{font-size:14px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:10px;}
+.card h2 .n{font-size:11px; color:var(--ink-4); font-weight:400;}
+/* ---- 截图选择 ---- */
+.chips{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0 4px;}
+.chip{
+  font-family:inherit; font-size:11px; cursor:pointer;
+  background:#fff; color:var(--ink-2);
+  border:0.5px solid var(--line-1); border-radius:14px; padding:4px 12px;
+  transition:all .15s;
+}
+.chip:hover{border-color:var(--d3); color:var(--d3);}
+.chip.on{background:var(--d3-bg); border-color:var(--d3); color:var(--d3); font-weight:600;}
+.chip:focus-visible{outline:2px solid var(--d3); outline-offset:2px;}
+.shot-area{display:flex; gap:18px; align-items:flex-start; margin-top:10px; flex-wrap:wrap;}
+/* ---- 手机壳预览（围绕手机 App 页面操作） ---- */
+.phone{
+  width:252px; height:532px; flex:0 0 252px;
+  border-radius:36px; border:9px solid #17181c;
+  background:#0d1117; position:relative; overflow:hidden;
+  box-shadow:0 8px 28px rgba(23,24,28,.18), inset 0 0 0 1px rgba(255,255,255,.06);
+  margin:2px auto 0;
+}
+.phone .notch{
+  position:absolute; top:0; left:50%; transform:translateX(-50%);
+  width:112px; height:22px; background:#17181c; border-radius:0 0 14px 14px; z-index:3;
+}
+.phone img{width:100%; height:100%; object-fit:cover; display:block;}
+.phone .ph-empty{
+  position:absolute; inset:0; display:flex; flex-direction:column; gap:6px;
+  align-items:center; justify-content:center; color:var(--ink-4); font-size:11px; text-align:center;
+}
+.shot-meta{flex:1; min-width:200px;}
+.shot-meta .desc{font-size:12px; color:var(--ink-3); margin-bottom:10px;}
+.inrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px;}
+.tip{font-size:11px; color:var(--ink-4);}
+/* ---- 流水线（与 tool_gate 同款视觉） ---- */
+.pl{
+  background:var(--card); border:0.5px solid var(--line-1); border-left:3px solid var(--ink-4);
+  border-radius:8px; padding:9px 12px;
+}
+.pl.hit{border-left-color:var(--d3);} .pl.hit::before{background:var(--d3); border-color:var(--d3);}
+.pl.err{border-left-color:var(--red);} .pl.err::before{background:var(--red); border-color:var(--red);}
+.pl-head{display:flex; align-items:center; gap:8px; cursor:pointer;}
+.pl-tag{font-size:10px; font-weight:700; color:var(--ink-2); background:var(--bg); border:0.5px solid var(--line-1); border-radius:4px; padding:1px 6px;}
+.pl-name{font-size:13px; font-weight:600;}
+.pl-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px; white-space:nowrap;}
+.pl-st.hit{background:var(--d3-bg); color:var(--d3);}
+.pl-st.skip{background:var(--amber-bg); color:var(--amber);}
+.pl-st.err{background:var(--red-bg); color:var(--red);}
+.pl-st.pass{background:var(--bg); color:var(--ink-3);}
+.pl-ms{font-size:11px; color:var(--ink-4); margin-left:auto; white-space:nowrap;}
+.pl-brief{font-size:12px; color:var(--ink-3); margin:3px 0 0 0;}
+.pl-detail{display:none; margin-top:7px;}
+.pl-detail.open{display:block;}
+.pl-detail pre{
+  font-size:10px; line-height:1.5; white-space:pre-wrap; word-break:break-all;
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px; padding:8px 10px;
+  color:var(--ink-2); font-family:Consolas,Menlo,monospace; max-height:260px; overflow:auto;
+}
+.pl-arrow{font-size:11px; color:var(--ink-4); margin:4px 0 4px 14px; line-height:1;}
+/* ---- 裁决 ---- */
+.verdict{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
+.v-badge{font-size:13px; font-weight:700; padding:4px 14px; border-radius:8px;}
+.v-badge.pass{background:var(--jev-bg); color:var(--jev);}
+.v-badge.warn{background:var(--amber-bg); color:var(--amber);}
+.v-badge.block{background:var(--red-bg); color:var(--red);}
+.v-badge.info{background:var(--d3-bg); color:var(--d3);}
+.v-sub{font-size:11px; color:var(--ink-4);}
+.intent-path{display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:6px 0 2px;}
+.intent-chip{
+  background:var(--bg); border:0.5px solid var(--line-1); border-radius:6px;
+  padding:2px 9px; font-size:11px; color:var(--ink-2);
+}
+.intent-chip.mono{font-family:Consolas,Menlo,monospace; background:var(--jev-bg); border-color:var(--jev); color:var(--jev); font-weight:600;}
+.intent-arrow{font-size:10px; color:var(--ink-4);}
+.guides{margin-top:10px; padding-left:2px; list-style:none; counter-reset:g;}
+.guides li{
+  counter-increment:g; font-size:12px; color:var(--ink-2);
+  padding:5px 0 5px 26px; position:relative; border-top:0.5px dashed var(--line-2);
+}
+.guides li:first-child{border-top:0;}
+.guides li::before{
+  content:counter(g); position:absolute; left:2px; top:6px;
+  width:16px; height:16px; border-radius:50%;
+  background:var(--jev-bg); color:var(--jev);
+  font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;
+}
+.conf-row{font-size:11px; color:var(--ink-4); margin-top:8px;}
+.demo-flag{display:none; margin-top:10px; font-size:11px; color:var(--amber);}
+.demo-flag.show{display:block;}
+.dec-path{font-size:12px; color:var(--ink-3); margin-top:6px;}
+.dec-path b{color:var(--ink-2);}
+/* ---- 判定明细 ---- */
+.gate{border:0.5px solid var(--line-2); border-radius:8px; padding:8px 10px; margin-bottom:8px;}
+.g-head{display:flex; align-items:center; gap:8px;}
+.g-name{font-size:12px; font-weight:600;}
+.g-kind{font-size:10px; padding:0 6px; border-radius:8px; background:var(--bg); color:var(--ink-4);}
+.g-st{font-size:10px; font-weight:600; padding:1px 8px; border-radius:10px; margin-left:auto;}
+.g-st.ok{background:var(--jev-bg); color:var(--jev);}
+.g-st.bad{background:var(--red-bg); color:var(--red);}
+.g-st.warn{background:var(--amber-bg); color:var(--amber);}
+.opt{display:flex; align-items:center; gap:8px; font-size:11px; color:var(--ink-2); margin-top:5px;}
+.opt .nm{width:118px; flex:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.opt.top .nm{color:var(--ink-1); font-weight:600;}
+.opt .bar{flex:1; height:6px; background:var(--bg); border-radius:4px; overflow:hidden;}
+.opt .bar i{display:block; height:100%; border-radius:4px; background:var(--ink-4);}
+.opt.top .bar i{background:var(--d3);}
+.opt .pv{width:42px; text-align:right; color:var(--ink-4); font-family:Consolas,Menlo,monospace; font-size:10px;}
+/* ---- 档案 ---- */
+.kv{display:flex; font-size:12px; padding:4px 0; border-bottom:0.5px dashed var(--line-2); gap:8px;}
+.kv:last-child{border-bottom:0;}
+.kv b{width:82px; flex:none; color:var(--ink-3); font-weight:400; font-size:11px;}
+.kv span{flex:1; min-width:0; word-break:break-all;}
+.cmp{display:inline-block; font-size:10px; padding:0 7px; border-radius:8px; margin-left:4px; vertical-align:1px;}
+.cmp.ok{background:var(--jev-bg); color:var(--jev);}
+.cmp.bad{background:var(--red-bg); color:var(--red);}
+.cmp.na{background:var(--bg); color:var(--ink-4);}
+/* ---- 统计 / 日志 ---- */
+.tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.tile{background:var(--bg); border-radius:8px; padding:10px 6px; text-align:center;}
+.tile .v{font-size:20px; font-weight:700; line-height:1.2;}
+.tile .k{font-size:10px; color:var(--ink-4); margin-top:2px;}
+#jlog{
+  font-family:Consolas,Menlo,monospace; font-size:10px; line-height:1.55; color:var(--ink-2);
+  background:#f8f9fb; border:0.5px solid var(--line-2); border-radius:6px;
+  padding:8px 10px; max-height:220px; overflow:auto; white-space:pre-wrap; word-break:break-all;
+}
+.empty{font-size:12px; color:var(--ink-4);}
+#toast{
+  position:fixed; left:50%; bottom:26px; transform:translate(-50%,16px);
+  background:var(--ink-1); color:#fff; font-size:12px;
+  padding:8px 18px; border-radius:8px; opacity:0; pointer-events:none;
+  transition:all .2s; z-index:50; max-width:80vw;
+}
+#toast.show{opacity:1; transform:translate(-50%,0);}
+@media (max-width:1080px){ .main{grid-template-columns:1fr;} .phone{margin-left:0;} }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">多模态截图路由测试台<span class="sub">d3-lite 多模态 SystemOne · 业务域/办理场景/页面状态 3 题并行 · bank_graph 意图路由</span></span>
+  </div>
+  <div class="btns">
+    <button class="btn dark" onclick="selfTest()">连接自检</button>
+    <button class="btn dark" onclick="resetAll()">清空</button>
+  </div>
+</header>
+<div id="netbar">通道检测中…</div>
+
+<div class="main">
+  <div class="colL">
+    <div class="card">
+      <h2>截图接入 <span class="n">选择内置 mock 截图或上传本机 App 截图 · 点击「开始路由」</span></h2>
+      <div class="chips" id="chips"></div>
+      <div class="shot-area">
+        <div class="phone">
+          <div class="notch"></div>
+          <div class="ph-empty" id="phEmpty">← 从上方选择一张截图<br>或上传本机 App 截图</div>
+          <img id="shotImg" alt="手机截图预览" style="display:none">
+        </div>
+        <div class="shot-meta">
+          <div class="desc" id="shotDesc">手机银行 App 截图会作为图像输入 d3 多模态模型，与客服消息上下文一起完成三题并行判定。</div>
+          <div class="inrow">
+            <button class="btn upload">上传截图<input type="file" id="file" accept="image/*"></button>
+            <span class="tip" id="fileTip"></span>
+          </div>
+          <div class="inrow">
+            <button class="btn primary" id="go" onclick="runRoute()" disabled>开 始 路 由</button>
+            <span class="tip">先启动 <b>python server/serve_d3.py</b>（8788）走真实推理；<br>服务不可用时内置截图自动降级为本地基线模拟（标注「模拟」）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>多模态路由管道 <span class="n">L0 截图接入 → L1 三题并行判定 → L2 路由裁决 · 点击节点展开报文</span></h2>
+      <div id="pipe"></div>
+    </div>
+
+    <div class="card">
+      <h2>路由裁决 <span class="n">办理指引 / 域级入口 / 首页导航 / 异常处理 / 低置信确认</span></h2>
+      <div id="rep"><div class="empty" id="repEmpty">尚无裁决 —— 选择截图并点击「开始路由」</div></div>
+      <span class="demo-flag" id="demoFlag">⚠ 本地基线·演示：d3 服务不可用，以下概率为按注册真值模拟的数值，仅供界面演示</span>
+    </div>
+  </div>
+
+  <div class="colR">
+    <div class="card">
+      <h2>三题判定明细 <span class="n">choice 显示各选项概率 · noul 显示页面正常概率</span></h2>
+      <div id="detail"><div class="empty">尚未判定</div></div>
+    </div>
+    <div class="card">
+      <h2>截图档案 <span class="n">page_registry 注册信息 · 预测 vs 注册真值对照</span></h2>
+      <div id="arch"><div class="empty">选择内置截图后展示档案与对照</div></div>
+    </div>
+    <div class="card">
+      <h2>会话统计</h2>
+      <div class="tiles">
+        <div class="tile"><div class="v" id="st_n">0</div><div class="k">路由次数</div></div>
+        <div class="tile"><div class="v" id="st_route">0</div><div class="k">已路由</div></div>
+        <div class="tile"><div class="v" id="st_conf">0</div><div class="k">低置信</div></div>
+        <div class="tile"><div class="v" id="st_abn">0</div><div class="k">异常态</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>观测 JSONL <span class="n">每次路由一条 · 审计留痕</span></h2>
+      <div id="jlog">—</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= 页面注册表（与 page_registry.json 同源，供档案对照与本地基线） ================= */
+var PAGES=[
+ {f:"ai-bank-01-home.jpg", chip:"01 首页", id:"ccb.home", name:"App 首页宫格", kind:"home",
+  dom:null, leaf:null, ps:true, desc:"首页门户：转账/缴费/理财/账户等业务宫格入口，客户尚未进入具体业务", ent:"入口宫格 × 多"},
+ {f:"ai-bank-02-transfer-remittance-feature.jpg", chip:"02 转账入口", id:"ccb.transfer.entry", name:"转账汇款入口页", kind:"entry",
+  dom:"demo.transfer", leaf:"demo.transfer.peer", ps:true, desc:"转账汇款功能入口：收款人列表（张伟·建行4321 / 李敏·工行6088）", ent:"收款人 张伟/李敏"},
+ {f:"ai-bank-03-transfer-task-plan-form.jpg", chip:"03 转账表单", id:"ccb.transfer.task-plan", name:"转账任务计划表单", kind:"form",
+  dom:"demo.transfer", leaf:"demo.transfer.peer", ps:true, desc:"转账任务计划：工资卡6217 → 张伟·4321，金额 1000.00，待本人确认", ent:"金额 ¥1000.00 · 待确认"},
+ {f:"ai-bank-04-life-payment-feature.jpg", chip:"04 缴费入口", id:"ccb.utility.entry", name:"生活缴费入口页", kind:"entry",
+  dom:"demo.utility", leaf:"demo.utility.pay", ps:true, desc:"生活缴费功能入口：燃气/话费/水电等缴费项目", ent:"缴费项目宫格"},
+ {f:"ai-bank-05-pending-bills-list.jpg", chip:"05 待缴账单", id:"ccb.utility.bills.list", name:"待缴账单列表", kind:"list",
+  dom:"demo.utility", leaf:"demo.utility.pay", ps:true, desc:"待缴账单：燃气费 2026-08 ¥126.80 / 手机话费 2026-08 ¥100.00", ent:"燃气 ¥126.80 · 话费 ¥100.00"},
+ {f:"ai-bank-06-longqianbao-wealth.jpg", chip:"06 龙钱宝", id:"ccb.wealth.entry", name:"龙钱宝理财页", kind:"entry",
+  dom:"demo.wealth", leaf:"demo.wealth.buy", ps:true, desc:"理财产品页：龙钱宝1号 申购入口", ent:"龙钱宝1号"},
+ {f:"ai-bank-07-account-overview.jpg", chip:"07 账户总览", id:"ccb.account.overview", name:"账户总览详情", kind:"detail",
+  dom:"demo.account", leaf:"demo.account.query", ps:true, desc:"账户总览：余额 ¥28,640.36（尾号6217），最近交易 3 笔", ent:"余额 ¥28,640.36"},
+ {f:"ai-bank-08-card-management-guashi-entry.jpg", chip:"08 挂失入口", id:"ccb.card.management", name:"卡片管理·挂失入口", kind:"entry",
+  dom:"demo.loss_fraud", leaf:null, ps:true, desc:"银行卡管理页：卡片挂失入口（FAQ），挂失止付域的具体办理页 mock 暂缺", ent:"挂失入口（FAQ）"},
+ {f:"ai-bank-09-bill-list-error.jpg", chip:"09 错误页", id:"ccb.utility.bills.error", name:"账单加载失败错误页", kind:"error",
+  dom:"demo.utility", leaf:"demo.utility.pay", ps:false, desc:"待缴账单加载失败——银行服务返回了无法解析的响应（page_state=false 负样本）", ent:"错误卡片"}
+];
+var DOM_NAMES={"demo.transfer":"转账汇款","demo.utility":"生活缴费","demo.wealth":"理财","demo.account":"账户查询","demo.loss_fraud":"挂失止付","demo.complaint":"投诉纠纷"};
+var SCENE_NAMES={"none":"不是具体办理场景","demo.transfer.peer":"转账汇款","demo.utility.pay":"生活缴费","demo.wealth.buy":"理财申购","demo.account.query":"账户查询","demo.loss_fraud.protect":"挂失止付","demo.complaint.emotion":"投诉纠纷"};
+var GUIDES={
+ "demo.transfer.peer":["首页 → 转账/汇款 → 选择收款人（或录入新收款人）","输入金额 → 选付款账户 → 核对费率与到账时效","确认付款 → 短信验证码 → 完成后留存电子回单"],
+ "demo.utility.pay":["首页 → 生活缴费 → 选择缴费项目（燃气/话费/水电）","确认户号 → 核对待缴账单与金额","确认缴费 → 完成支付并留存凭证"],
+ "demo.wealth.buy":["首页 → 投资理财 → 选择产品（如龙钱宝）","阅读产品说明书与风险提示 → 完成风险测评","输入申购金额 → 确认买入"],
+ "demo.account.query":["首页 → 我的账户 → 账户总览","查看余额与最近交易明细（可导出流水）"],
+ "demo.loss_fraud.protect":["先安抚客户，确认卡片是否本人持有、资金有无异动","我的 → 银行卡管理 → 挂失/止付（紧急可先电话口头挂失）","提示可疑交易申诉流程与防诈注意事项"],
+ "demo.complaint.emotion":["先安抚情绪 → 记录诉求工单","明确处理时限 → 转人工坐席跟进"]};
+var DOMAIN_GUIDES={
+ "demo.transfer":["首页 → 转账汇款 入口","选择转账类型（同行/跨行/手机号转账）"],
+ "demo.utility":["首页 → 生活缴费 入口","选择缴费城市与项目"],
+ "demo.wealth":["首页 → 投资理财 入口","浏览产品列表或我的持仓"],
+ "demo.account":["首页 → 我的账户 入口","选择要查看的卡/账户"],
+ "demo.loss_fraud":["我的 → 银行卡管理 → 挂失与安全"],
+ "demo.complaint":["我的 → 意见反馈，或在客服会话中直接表达诉求"]};
+var HOME_GUIDE=["识别为 App 首页/门户：客户尚未进入具体业务","询问客户要办理的业务，按关键词引导点击对应宫格入口"];
+var ABNORMAL_GUIDE=["页面加载异常（报错卡片/空白占位）：先请客户退出页面重新进入","重进仍失败 → 建议稍后再试或转人工受理，避免客户反复重试"];
+var CONF_MIN=0.45;
+
+/* ================= 通道（同源代理 → serve_d3.py；file:// 直连 8788） ================= */
+var DIRECT="http://127.0.0.1:8788";
+var chanBase="", chanName="—", d3OK=false;
+function setChannel(){
+  if(location.protocol==="http:"||location.protocol==="https:"){ chanBase=""; chanName="同源代理 /v1/d3 → serve_d3.py（d3-lite 本地推理）"; }
+  else { chanBase=DIRECT; chanName="file:// 直连 serve_d3.py（127.0.0.1:8788）"; }
+}
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
+function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(toast._h); toast._h=setTimeout(function(){ el.classList.remove("show"); },2600); }
+function fmt(x){ return (x==null)?"—":String(Math.round(x*1000)/1000); }
+async function selfTest(quiet){
+  var nb=document.getElementById("netbar"), t0=Date.now();
+  try{
+    var r=await fetch((chanBase||"")+"/v1/d3healthz",{cache:"no-store"});
+    var d=await r.json();
+    if(r.ok&&d.ok){
+      d3OK=true;
+      nb.innerHTML="通道：<b>"+chanName+"</b> · 模型 "+esc(shortModel(d.model))+(d.adapter?(" + LoRA "+esc(d.adapter)):"")
+        +" · "+esc(d.device||"?")+" · 自检通过 "+(Date.now()-t0)+"ms · <b style='color:var(--jev)'>可用</b>";
+      if(!quiet) toast("d3 服务自检通过");
+    }else{
+      d3OK=false;
+      var msg=d.error?("加载失败："+esc(d.error)):(d.ready===false?"模型加载中…":"状态异常");
+      nb.innerHTML="通道：<b style='color:var(--amber)'>"+chanName+"</b> · "+msg;
+      if(!quiet) toast(d.error?"模型加载失败，详见服务端日志":"模型仍在加载，请稍候再试");
+    }
+  }catch(e){
+    d3OK=false;
+    nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 不可用 · 请先运行 <b>python server/serve_d3.py</b>（内置截图将降级本地基线模拟）";
+    if(!quiet) toast("serve_d3.py 未运行：内置截图可走本地基线演示");
+  }
+}
+function shortModel(p){ if(!p) return "d3-lite"; var m=String(p).replace(/[\\/]+$/,"").split(/[\\/]/); return m[m.length-1]; }
+
+/* ================= 截图选择 ================= */
+var cur=null; // {mode:"shot",i} | {mode:"upload",dataURL,name}
+function initChips(){
+  var h="";
+  PAGES.forEach(function(p,i){ h+='<button class="chip" id="chip_'+i+'" onclick="selectShot('+i+')">'+esc(p.chip)+'</button>'; });
+  document.getElementById("chips").innerHTML=h;
+}
+function selectShot(i){
+  cur={mode:"shot",i:i};
+  PAGES.forEach(function(_,j){ document.getElementById("chip_"+j).classList.toggle("on",j===i); });
+  var p=PAGES[i], img=document.getElementById("shotImg");
+  img.src="screenshots/"+p.f; img.style.display="block";
+  document.getElementById("phEmpty").style.display="none";
+  document.getElementById("shotDesc").innerHTML="<b>"+esc(p.name)+"</b>（"+esc(p.id)+" · "+esc(p.kind)+"）： "+esc(p.desc);
+  document.getElementById("fileTip").textContent="";
+  document.getElementById("go").disabled=false;
+}
+document.getElementById("file").addEventListener("change",function(){
+  var f=this.files&&this.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    cur={mode:"upload",dataURL:rd.result,name:f.name};
+    PAGES.forEach(function(_,j){ document.getElementById("chip_"+j).classList.remove("on"); });
+    var img=document.getElementById("shotImg");
+    img.src=rd.result; img.style.display="block";
+    document.getElementById("phEmpty").style.display="none";
+    document.getElementById("shotDesc").innerHTML="<b>本地上传</b>："+esc(f.name)+"（无注册档案，不做真值对照）";
+    document.getElementById("fileTip").textContent=Math.round(f.size/1024)+" KB";
+    document.getElementById("go").disabled=false;
+  };
+  rd.readAsDataURL(f);
+});
+
+/* ================= 流水线 ================= */
+var PIPE=[
+ {id:"L0",name:"ScreenshotIngest 截图接入",brief:"内置 mock 截图 / 本地上传 → base64 图像输入"},
+ {id:"L1",name:"MultimodalSystemOne 三题并行",brief:"d3-lite 单请求 3 题：domain choice 6-way · scene choice 7-way · page_state noul"},
+ {id:"L2",name:"RoutingVerdict 路由裁决",brief:"scene→intent_id 办理指引 · 域级入口 · 首页导航 · 异常态处理 · 低置信确认"}
+];
+function renderPipe(){
+  var h="";
+  PIPE.forEach(function(p,i){
+    h+='<div class="pl pass" id="pl_'+i+'"><div class="pl-head" onclick="toggleDetail('+i+')">'
+      +'<span class="pl-tag">'+p.id+'</span><span class="pl-name">'+p.name+'</span>'
+      +'<span class="pl-st pass" id="pst_'+i+'">待命</span><span class="pl-ms" id="pms_'+i+'"></span></div>'
+      +'<p class="pl-brief" id="pb_'+i+'">'+p.brief+'</p>'
+      +'<div class="pl-detail" id="pd_'+i+'"><pre>—</pre></div></div>';
+    if(i<PIPE.length-1) h+='<div class="pl-arrow">▼</div>';
+  });
+  document.getElementById("pipe").innerHTML=h;
+}
+function toggleDetail(i){ document.getElementById("pd_"+i).classList.toggle("open"); }
+function setPl(i,state,st,ms,brief,detail){
+  var el=document.getElementById("pl_"+i); if(!el) return;
+  el.className="pl "+state;
+  var stEl=document.getElementById("pst_"+i);
+  stEl.className="pl-st "+state; stEl.textContent=st;
+  document.getElementById("pms_"+i).textContent=(ms!=null)?(ms+" ms"):"";
+  if(brief!=null) document.getElementById("pb_"+i).textContent=brief;
+  if(detail!=null) document.getElementById("pd_"+i).querySelector("pre").textContent=detail;
+}
+function resetPipe(){
+  PIPE.forEach(function(_,i){
+    setPl(i,"pass","待命",null,null,null);
+    document.getElementById("pd_"+i).classList.remove("open");
+  });
+}
+
+/* ================= 路由判定（与 serve_d3._route 同逻辑，供本地基线复用） ================= */
+function argmax(probs){ var best=null,bp=-1; for(var k in probs){ if(probs[k]>bp){bp=probs[k];best=k;} } return [best,bp]; }
+function jsRoute(answers){
+  var domP=answers.domain.probabilities, sceneP=answers.scene.probabilities;
+  var dom=argmax(domP), scene=argmax(sceneP);
+  var ps=+answers.page_state.noul, pageOk=ps>0.5;
+  var leaf=scene[0]!=="none"?scene[0]:null;
+  var intent=leaf||(dom[0]!=="none"?dom[0]:null);
+  var action,label,guides,conf;
+  if(!pageOk){ action="abnormal"; label="页面异常 · 转异常处理"; guides=ABNORMAL_GUIDE; conf=1-ps; }
+  else if(leaf){ action="route"; label="已路由到办理指引"; guides=GUIDES[leaf]||[]; conf=scene[1]; }
+  else if(dom[0]!=="none"){ action="route"; label="域级入口指引"; guides=DOMAIN_GUIDES[dom[0]]||[]; conf=dom[1]; }
+  else { action="home"; label="首页导航"; guides=HOME_GUIDE; conf=scene[1]; }
+  var low=pageOk&&conf<CONF_MIN;
+  if(low){ action="confirm"; label="低置信 · 建议人工确认"; }
+  return {action:action,label:label,domain:dom[0]==="none"?null:dom[0],scene:leaf,intent_id:intent,
+    page_state:pageOk,conf:Math.min(conf,1),low_conf:low,guides:guides,
+    picks:{domain:dom,scene:scene,page_state:ps}};
+}
+/* 本地基线：按注册真值模拟概率（真值 0.78，其余均分；noul 0.94/0.08） */
+function localBaseline(p){
+  function choice(truth,keys){
+    var probs={},others=keys.filter(function(k){return k!==truth;});
+    probs[truth]=0.78; others.forEach(function(k,i){ probs[k]=Math.round(0.22/others.length*1000)/1000; });
+    return probs;
+  }
+  var domKeys=Object.keys(DOM_NAMES), sceneKeys=Object.keys(SCENE_NAMES);
+  return {domain:{type:"choice",probabilities:choice(p.dom||"none",domKeys)},
+          scene:{type:"choice",probabilities:choice(p.leaf||"none",sceneKeys)},
+          page_state:{type:"noul",noul:p.ps?0.94:0.08}};
+}
+
+/* ================= d3 调用 ================= */
+async function callD3(payload){
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null;
+  var timer=ac?setTimeout(function(){ try{ac.abort();}catch(e){} },120000):null;
+  try{
+    var r=await fetch((chanBase||"")+"/v1/d3route",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(payload), signal:ac?ac.signal:undefined});
+    var txt=await r.text(), data=null;
+    try{ data=JSON.parse(txt); }catch(e){}
+    if(!(r.status>=200&&r.status<300)){
+      return {ok:false,code:r.status,err:(data&&data.detail)||("HTTP "+r.status+" "+txt.slice(0,160))};
+    }
+    return {ok:true,data:data};
+  }catch(e){
+    var em=String(e); if(/abort/i.test(em)) em="请求超时（120s，已中止）";
+    return {ok:false,code:0,err:em};
+  }finally{ if(timer) clearTimeout(timer); }
+}
+
+/* ================= 渲染 ================= */
+function renderAnswers(answers){
+  function choiceBlock(qk,title,probs){
+    var rows=Object.keys(probs).map(function(k){ return [k,probs[k]]; }).sort(function(a,b){ return b[1]-a[1]; });
+    var h='<div class="gate"><div class="g-head"><span class="g-name">'+title+'</span><span class="g-kind">choice</span>'
+      +'<span class="g-st ok">'+esc(rows[0][0]==="none"?"无场景":SCENE_NAMES[rows[0][0]]||DOM_NAMES[rows[0][0]]||rows[0][0])+'</span></div>';
+    rows.forEach(function(r,i){
+      h+='<div class="opt'+(i===0?" top":"")+'"><span class="nm">'+esc(r[0]==="none"?"（无具体场景）":(SCENE_NAMES[r[0]]||DOM_NAMES[r[0]]||r[0]))+'</span>'
+        +'<span class="bar"><i style="width:'+Math.round(r[1]*100)+'%"></i></span><span class="pv">'+fmt(r[1])+'</span></div>';
+    });
+    return h+'</div>';
+  }
+  var h=choiceBlock("domain",qTitle("domain"),answers.domain.probabilities)
+      +choiceBlock("scene",qTitle("scene"),answers.scene.probabilities);
+  var ps=+answers.page_state.noul;
+  h+='<div class="gate"><div class="g-head"><span class="g-name">'+qTitle("page_state")+'</span><span class="g-kind">noul</span>'
+    +'<span class="g-st '+(ps>0.5?"ok":"bad")+'">'+(ps>0.5?"页面正常":"页面异常")+'</span></div>'
+    +'<div class="opt'+(ps>0.5?" top":"")+'"><span class="nm">页面正常（true）</span><span class="bar"><i style="width:'+Math.round(ps*100)+'%"></i></span><span class="pv">'+fmt(ps)+'</span></div>'
+    +'<div class="opt"><span class="nm">页面异常（false）</span><span class="bar"><i style="width:'+Math.round((1-ps)*100)+'%"></i></span><span class="pv">'+fmt(1-ps)+'</span></div>'
+    +'</div>';
+  document.getElementById("detail").innerHTML=h;
+}
+function qTitle(qk){ return qk==="domain"?"① 业务域 domain":(qk==="scene"?"② 办理场景 scene":"③ 页面状态 page_state"); }
+function renderVerdict(rt,ms,demo,srcName){
+  var cls={route:"pass",home:"info",abnormal:"block",confirm:"warn"}[rt.action]||"info";
+  var h='<div class="verdict"><span class="v-badge '+cls+'">'+esc(rt.label)+'</span>'
+    +'<span class="v-sub">'+esc(srcName)+' · 耗时 '+ms+(demo?'ms · 本地基线模拟':'ms')+'</span></div>';
+  h+='<div class="intent-path">';
+  if(rt.action==="abnormal"){ h+='<span class="intent-chip">⚠ 页面异常态</span><span class="intent-arrow">→</span><span class="intent-chip">转异常处理 · 不做业务路由</span>'; }
+  else if(rt.intent_id){
+    if(rt.domain) h+='<span class="intent-chip">'+esc(DOM_NAMES[rt.domain]||rt.domain)+'</span><span class="intent-arrow">→</span>';
+    if(rt.scene) h+='<span class="intent-chip">'+esc(SCENE_NAMES[rt.scene])+'</span><span class="intent-arrow">→</span>';
+    h+='<span class="intent-chip mono">'+esc(rt.intent_id)+'</span>';
+  }else{ h+='<span class="intent-chip">首页 / 门户 · 无具体意图</span>'; }
+  h+='</div>';
+  if(rt.guides&&rt.guides.length) h+='<ol class="guides">'+rt.guides.map(function(g){ return "<li>"+esc(g)+"</li>"; }).join("")+'</ol>';
+  h+='<div class="conf-row">路由置信度 p='+fmt(rt.conf)+'（阈值 '+CONF_MIN+'）· 页面状态判定：'+(rt.page_state?"正常":"异常")
+    +' · domain p='+fmt(rt.picks.domain[1])+' · scene p='+fmt(rt.picks.scene[1])+' · state p='+fmt(rt.picks.page_state)+'</div>';
+  document.getElementById("rep").innerHTML=h;
+  document.getElementById("demoFlag").className="demo-flag"+(demo?" show":"");
+}
+function renderArch(p,rt){
+  if(!p){ document.getElementById("arch").innerHTML='<div class="empty">本地上传截图 · 无注册档案，不做真值对照</div>'; return; }
+  function cmp(pred,truth){ 
+    if(truth==null) return '<span class="cmp na">n/a</span>';
+    return pred===truth?'<span class="cmp ok">✓ 一致</span>':'<span class="cmp bad">✗ 偏差</span>';
+  }
+  document.getElementById("arch").innerHTML=
+    '<div class="kv"><b>page_id</b><span>'+esc(p.id)+'</span></div>'
+    +'<div class="kv"><b>页面名称</b><span>'+esc(p.name)+'（'+esc(p.kind)+'）</span></div>'
+    +'<div class="kv"><b>页面说明</b><span>'+esc(p.desc)+'</span></div>'
+    +'<div class="kv"><b>关键要素</b><span>'+esc(p.ent)+'</span></div>'
+    +'<div class="kv"><b>① 业务域</b><span>'+(p.dom?esc(DOM_NAMES[p.dom]):"（首页，无域）")+cmp(rt.picks.domain[0],p.dom)+'</span></div>'
+    +'<div class="kv"><b>② 场景</b><span>'+(p.leaf?esc(SCENE_NAMES[p.leaf]):"（非具体场景）")+cmp(rt.picks.scene[0],p.leaf||"none")+'</span></div>'
+    +'<div class="kv"><b>③ 页面状态</b><span>'+(p.ps?"正常":"异常")+cmp(rt.page_state?"true":"false",p.ps?"true":"false")+'</span></div>';
+}
+
+/* ================= 统计 / 日志 ================= */
+var STATS={n:0,route:0,conf:0,abn:0}, JLOG=[];
+function bump(id){ var el=document.getElementById(id); el.textContent=(+el.textContent||0)+1; }
+function addLog(rec){
+  JLOG.unshift(JSON.stringify(rec));
+  if(JLOG.length>30) JLOG.pop();
+  document.getElementById("jlog").textContent=JLOG.join("\n");
+}
+function resetAll(){
+  cur=null; STATS={n:0,route:0,conf:0,abn:0}; JLOG=[];
+  document.getElementById("st_n").textContent="0"; document.getElementById("st_route").textContent="0";
+  document.getElementById("st_conf").textContent="0"; document.getElementById("st_abn").textContent="0";
+  document.getElementById("jlog").textContent="—";
+  document.getElementById("shotImg").style.display="none";
+  document.getElementById("phEmpty").style.display="flex";
+  document.getElementById("shotDesc").textContent="手机银行 App 截图会作为图像输入 d3 多模态模型，与客服消息上下文一起完成三题并行判定。";
+  document.getElementById("go").disabled=true;
+  PAGES.forEach(function(_,j){ document.getElementById("chip_"+j).classList.remove("on"); });
+  resetPipe();
+  document.getElementById("rep").innerHTML='<div class="empty" id="repEmpty">尚无裁决 —— 选择截图并点击「开始路由」</div>';
+  document.getElementById("detail").innerHTML='<div class="empty">尚未判定</div>';
+  document.getElementById("arch").innerHTML='<div class="empty">选择内置截图后展示档案与对照</div>';
+  document.getElementById("demoFlag").className="demo-flag";
+}
+
+/* ================= 主流程 ================= */
+async function runRoute(){
+  if(!cur){ toast("请先选择或上传截图"); return; }
+  var go=document.getElementById("go");
+  go.disabled=true; go.textContent="路由判定中…";
+  resetPipe();
+  document.getElementById("rep").innerHTML='<div class="empty">判定中…（三题并行）</div>';
+  document.getElementById("demoFlag").className="demo-flag";
+  var page=cur.mode==="shot"?PAGES[cur.i]:null;
+  try{
+    /* L0 截图接入 */
+    var srcName=cur.mode==="shot"?page.chip:("上传·"+cur.name);
+    setPl(0,"hit","就绪",0,srcName+(page?(" · "+page.id):" · 无注册档案"),
+      "截图输入：\n· 来源："+srcName+"\n· 文件/名称："+(cur.mode==="shot"?page.f:cur.name)+"\n· 模型输入：图像(base64/文件) + 客服消息上下文 state\n· questions：domain(choice 6) / scene(choice 7) / page_state(noul)");
+    var out=null;
+    if(d3OK||chanBase!==""){
+      var payload=cur.mode==="shot"?{shot:page.f,name:page.id}:{image:cur.dataURL,name:cur.name};
+      var r=await callD3(payload);
+      if(r.ok){ out=r.data; }
+      else if(cur.mode==="shot"&&!(r.code===503)){
+        setPl(1,"err","服务不可用",null,null,"d3 调用失败：HTTP "+r.code+" "+r.err+"\n→ 降级本地基线模拟");
+        out={demo:true,answers:localBaseline(page),ms:0};
+      }else{
+        setPl(1,"err","失败",null,null,"d3 调用失败：HTTP "+r.code+" "+r.err+(r.code===503?"\n（模型加载中，稍后自检再试）":""));
+        toast("d3 调用失败：HTTP "+r.code);
+      }
+    }
+    if(out){
+      var demo=!!out.demo, rt=jsRoute(out.answers), ms=out.ms||0;
+      /* L1 三题并行 */
+      setPl(1,demo?"skip":"hit",demo?"本地基线":"三题并行",ms,
+        "domain="+(DOM_NAMES[rt.picks.domain[0]]||rt.picks.domain[0])+"("+fmt(rt.picks.domain[1])+") · scene="+(SCENE_NAMES[rt.picks.scene[0]])+"("+fmt(rt.picks.scene[1])+") · state="+(rt.picks.page_state>0.5?"正常":"异常")+"("+fmt(rt.picks.page_state)+")",
+        "请求 questions：\n"+JSON.stringify({state:"客户在手机银行App客服消息里发送了一张截图。请判断…",domain:"choice×6（转账/缴费/理财/账户/挂失/投诉）",scene:"choice×7（none+6 leaf intent）",page_state:"noul（页面是否正常）"},null,1)
+        +"\n\n响应 answers：\n"+JSON.stringify(out.answers,null,1));
+      /* L2 裁决 */
+      setPl(2,rt.action==="abnormal"?"err":"hit",rt.label,null,
+        (rt.intent_id?("intent_id="+rt.intent_id):"无具体意图")+" · conf="+fmt(rt.conf)+(rt.low_conf?"（低于阈值，建议确认）":""),
+        "routing：\n"+JSON.stringify(rt,null,1));
+      renderAnswers(out.answers);
+      renderVerdict(rt,ms,demo,srcName);
+      renderArch(page,rt);
+      STATS.n++;
+      if(rt.action==="route"&&!rt.low_conf) STATS.route++;
+      if(rt.low_conf) STATS.conf++;
+      if(rt.action==="abnormal") STATS.abn++;
+      document.getElementById("st_n").textContent=STATS.n;
+      document.getElementById("st_route").textContent=STATS.route;
+      document.getElementById("st_conf").textContent=STATS.conf;
+      document.getElementById("st_abn").textContent=STATS.abn;
+      addLog({ts:new Date().toLocaleTimeString("zh-CN",{hour12:false}),shot:cur.mode==="shot"?page.f:cur.name,
+        intent_id:rt.intent_id||null,action:rt.action,conf:rt.conf,page_state:rt.page_state,ms:ms,demo:demo||undefined});
+    }
+  }finally{
+    go.disabled=false; go.textContent="开 始 路 由";
+  }
+}
+
+/* ================= 启动 ================= */
+setChannel();
+initChips();
+renderPipe();
+selfTest(true);
+</script>
+</body>
+</html>

@@ -55,11 +55,13 @@ nav{padding:12px 10px; flex:1; overflow:auto;}
 .ico-c{background:#b14a3c;}
 .ico-d{background:#2e6fa3;}
 .ico-e{background:#b97218;}
+.ico-f{background:#0e7490;}
 .app-item.on .ico-a{background:#0c5c48;}
 .app-item.on .ico-b{background:#46409f;}
 .app-item.on .ico-c{background:#8a372d;}
 .app-item.on .ico-d{background:#24557d;}
 .app-item.on .ico-e{background:#8f5712;}
+.app-item.on .ico-f{background:#0b5a6b;}
 .app-item .d{font-size:11px;color:var(--ink-4);margin-top:3px;}
 .app-item.on .d{color:var(--ink-3);}
 .foot{padding:12px 16px 16px; border-top:0.5px solid rgba(255,255,255,.08); font-size:11px; color:var(--ink-4); line-height:1.7;}
@@ -152,7 +154,9 @@ var APPS=[
  {id:"guardrail", ico:"护", cls:"ico-d", name:"GenAI 输出护栏台",
   desc:"出街前合规闸门 · 放行/审核/拦截 + 安全改写", url:"guardrail.html"},
  {id:"tool_gate", ico:"控", cls:"ico-e", name:"Agent 工具调用风控台",
-  desc:"工具调用闸门 · 高危 HITL 审批 · 注入拦截", url:"tool_gate.html"}
+  desc:"工具调用闸门 · 高危 HITL 审批 · 注入拦截", url:"tool_gate.html"},
+ {id:"mm_routing", ico:"屏", cls:"ico-f", name:"多模态截图路由台",
+  desc:"App 截图三题并行 · 业务域/场景/页面状态 · 意图路由", url:"mm_routing.html"}
 ];
 var KEY="workbench_active_v1";
 /* 相对路径基准：经根路径（/）服务时补 demos/ 前缀；/demos/ 访问或 file:// 直开时为同目录 */
