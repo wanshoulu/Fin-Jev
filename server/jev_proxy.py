@@ -272,6 +272,9 @@ class Handler(BaseHTTPRequestHandler):
             if not _rate_ok("/v1/d3route", self.client_address[0]):
                 self._rate_limited()
                 return
+            if not _token_ok(self):
+                self._token_denied()
+                return
             self._forward_d3("GET", path, None)
             return
         if path in ("/", "/index.html"):
