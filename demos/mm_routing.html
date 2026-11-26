@@ -429,8 +429,9 @@ function toast(t){ var el=document.getElementById("toast"); el.textContent=t; el
 function fmt(x){ return (x==null)?"—":String(Math.round(x*1000)/1000); }
 async function selfTest(quiet){
   var nb=document.getElementById("netbar"), t0=Date.now();
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null, to=ac?setTimeout(function(){ try{ac.abort();}catch(_e){} },5000):null;  /* 5s 超时兜底，避免通道探测悬而不决卡在「检测中」 */
   try{
-    var r=await fetch((chanBase||"")+"/v1/d3healthz",{cache:"no-store"});
+    var r=await fetch((chanBase||"")+"/v1/d3healthz",{cache:"no-store",signal:ac?ac.signal:undefined});
     var d=await r.json();
     if(r.ok&&d.ok){
       d3OK=true;
@@ -448,6 +449,7 @@ async function selfTest(quiet){
     nb.innerHTML="通道：<b style='color:var(--red)'>"+chanName+"</b> · 不可用 · 请先运行 <b>python server/serve_d3.py</b>（内置截图将降级本地基线模拟）";
     if(!quiet) toast("serve_d3.py 未运行：内置截图可走本地基线演示");
   }
+  if(to) clearTimeout(to);
 }
 function shortModel(p){ if(!p) return "d3-lite"; var m=String(p).replace(/[\\/]+$/,"").split(/[\\/]/); return m[m.length-1]; }
 
@@ -762,8 +764,9 @@ function navStatus(html,err){
 }
 async function probeNav(){
   if(Date.now()-navProbeT<30000) return navOK;   /* 30s 内复用上次探测结果，避免公网环境反复探测产生 502 噪音 */
+  var ac=(typeof AbortController!=="undefined")?new AbortController():null, to=ac?setTimeout(function(){ try{ac.abort();}catch(_e){} },5000):null;  /* 5s 超时兜底：探测悬而不决时不卡死 runNav（此前停止按钮 abort 不到它） */
   try{
-    var r=await fetch((navBase||"")+"/v1/navhealthz",{cache:"no-store"});
+    var r=await fetch((navBase||"")+"/v1/navhealthz",{cache:"no-store",signal:ac?ac.signal:undefined});
     var d=await r.json();
     navOK=r.ok&&d.ok;
     navProbeT=Date.now();
@@ -775,6 +778,7 @@ async function probeNav(){
     navProbeT=Date.now();
     navStatus("导航服务不可达（serve_nav.js 未运行）· 点击「开始导航」将走本地模拟导航（预置路径 + 本地基线）");
   }
+  if(to) clearTimeout(to);
   return navOK;
 }
 async function navFetch(path,payload,noAbort){
