@@ -206,6 +206,9 @@ body{
 .mode-sw .chip{padding:4px 14px;}
 .mode-bar{display:flex; align-items:center; gap:12px; padding:10px 16px;}
 .mode-bar .mode-sw{margin-left:0;}
+.nav-ask{display:flex; flex-direction:column; gap:8px; padding:12px 14px; border:0.5px solid var(--line-1); border-radius:12px; background:var(--line-2); margin-bottom:14px;}
+.nav-ask .desc{font-size:12px;}
+.nav-user{align-self:flex-end; max-width:85%; background:var(--jev); color:#fff; border-radius:14px 14px 3px 14px; padding:8px 16px; font-size:13px; font-weight:600; margin-bottom:10px;}
 .nav-input{
   flex:1; min-width:200px; font-family:inherit; font-size:13px; color:var(--ink-1); background:#fff;
   border:0.5px solid var(--line-1); border-radius:8px; padding:8px 12px; outline:none;
@@ -283,8 +286,8 @@ body{
 <div class="main">
   <div class="colL">
     <div class="card mode-bar" id="modeBar">
-      <span class="mode-sw"><button class="chip on" id="modeStep" onclick="setMode('step')">单步判定</button><button class="chip" id="modeNav" onclick="setMode('nav')">连续导航</button></span>
-      <span class="tip">单步判定：一张截图 → 三题路由裁决 · 连续导航：一句话 → observe·act 循环直到到达目标页</span>
+      <span class="mode-sw"><button class="chip on" id="modeNav" onclick="setMode('nav')">连续导航</button><button class="chip" id="modeStep" onclick="setMode('step')">单步判定</button></span>
+      <span class="tip">连续导航：一句话 → observe·act 循环直到到达目标页 · 单步判定：一张截图 → 三题路由裁决</span>
     </div>
     <div class="card" id="shotCard">
       <h2>截图接入 <span class="n">选择内置 mock 截图或上传本机 App 截图 · 点击「开始路由」</span></h2>
@@ -311,21 +314,23 @@ body{
 
     <div class="card" id="navCard" style="display:none">
       <h2>连续导航 <span class="n">一句话 → 目标锚定 → observe（截图+三题）· act（点击）循环 → 到达目标页</span></h2>
+      <div class="nav-ask">
+        <div class="desc" id="navStatus">导航服务检测中…</div>
+        <div class="inrow">
+          <input class="nav-input" id="navInput" placeholder="说出你要办理的事情，例如：我要交燃气费" onkeydown="if(event.key==='Enter')runNav()">
+          <button class="btn primary" id="navGo" onclick="runNav()">发 送</button>
+          <button class="btn" id="navStop" onclick="stopNav()" style="display:none">停 止</button>
+        </div>
+        <div class="chips" id="navChips"></div>
+      </div>
       <div class="shot-area">
         <div class="phone">
           <div class="notch"></div>
-          <div class="ph-empty" id="navPhEmpty">输入一句话开始导航<br>每步实时展示 mock App 截图</div>
+          <div class="ph-empty" id="navPhEmpty">↑ 输入一句话开始导航<br>每步实时展示 mock App 截图</div>
           <img id="navShotImg" alt="导航实时截图" style="display:none">
         </div>
         <div class="shot-meta">
-          <div class="desc" id="navStatus">导航服务检测中…</div>
-          <div class="inrow">
-            <input class="nav-input" id="navInput" placeholder="说出你要办理的事情，例如：我要交燃气费" onkeydown="if(event.key==='Enter')runNav()">
-            <button class="btn primary" id="navGo" onclick="runNav()">开 始 导 航</button>
-            <button class="btn" id="navStop" onclick="stopNav()" style="display:none">停 止</button>
-          </div>
-          <div class="chips" id="navChips"></div>
-          <div class="tip">导航在本地 headless Edge 打开 mock 手机银行（:3000），每步：截图 → d3 三题判定 → 按裁决点击 → 再截图；最多 8 步，到达目标页即停。导航服务未运行时自动降级为预置路径模拟（标注「模拟」）。</div>
+          <div class="desc">导航在本地 headless Edge 打开 mock 手机银行（:3000），每步：截图 → d3 三题判定 → 按裁决点击 → 再截图；最多 8 步，到达目标页即停。导航服务未运行时自动降级为预置路径模拟（标注「模拟」）。</div>
         </div>
       </div>
       <div id="navTimeline" style="margin-top:12px"></div>
@@ -801,6 +806,7 @@ function renderNavStep(s){
   var stCls=s.done?(s.match?"hit":"err"):"pass";
   var stTxt=s.done?(s.match?"✓ 到达":(STOP_TXT[s.stop_reason]||s.stop_reason||"终止")):"导航中";
   var tl=document.getElementById("navTimeline");
+  var pend=document.getElementById("navPending"); if(pend) pend.remove();
   Array.prototype.forEach.call(tl.querySelectorAll(".pl-st"),function(b){ if(b.textContent==="导航中") b.textContent="已执行"; });
   var idx=Number(tl.getAttribute("data-n")||0);
   tl.setAttribute("data-n",idx+1);
@@ -846,7 +852,7 @@ async function runNav(){
   go.disabled=true; stop.style.display="";
   navRunning=true;
   navAC=(typeof AbortController!=="undefined")?new AbortController():null;
-  document.getElementById("navTimeline").innerHTML='<div class="empty">导航启动中…（headless Edge 打开 mock 手机银行 :3000）</div>';
+  document.getElementById("navTimeline").innerHTML='<div class="nav-user">'+esc(sentence)+'</div><div class="empty" id="navPending">导航启动中…（headless Edge 打开 mock 手机银行 :3000）</div>';
   setNavShot(null);
   var t0=Date.now(), sess=null, steps=0, done=false, match=false, stopReason=null, demo=false, target=null, lastV=null;
   try{
@@ -897,7 +903,7 @@ async function simulateNav(sentence){
   }
   NAV_GOAL_NAME=target.goalName;
   navStatus("目标锚定：<b>"+esc(target.label)+"</b> · "+esc(target.desc)+"（目标页："+esc(target.goalName)+"） · 本地模拟导航");
-  document.getElementById("navTimeline").innerHTML="";
+  document.getElementById("navTimeline").innerHTML='<div class="nav-user">'+esc(sentence)+'</div>';
   var t0=Date.now();
   for(var i=0;i<target.path.length;i++){
     if(!navRunning) return;
@@ -929,6 +935,7 @@ setChannel();
 initChips();
 renderPipe();
 initNavChips();
+setMode("nav");
 selfTest(true);
 </script>
 </body>
