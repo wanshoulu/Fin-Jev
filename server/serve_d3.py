@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
+r"""
 serve_d3.py — 多模态 JEV 推理服务（第 6 应用「截图路由测试台」后端）
 
 接收手机银行 App 截图（内置截图名或上传 base64），按 mmjev schema 出三题
@@ -110,14 +110,14 @@ def _load_model():
         import torch  # noqa: E402
         from d3_runtime import D3  # noqa: E402
         device = "cuda:0" if torch.cuda.is_available() else "cpu"
-        print(f"[serve_d3] 加载 {MODEL_DIR} → {device} ...")
+        print(f"[serve_d3] 加载 {MODEL_DIR} → {device} ...", flush=True)
         _D3 = D3(MODEL_DIR, device=device)
         if ADAPTER_DIR and (pathlib.Path(ADAPTER_DIR) / "adapter_config.json").exists():
             from peft import PeftModel
             _D3.backbone = PeftModel.from_pretrained(_D3.backbone, ADAPTER_DIR)
             _D3.backbone.eval()
-            print(f"[serve_d3] 已挂载 LoRA adapter: {ADAPTER_DIR}")
-        print(f"[serve_d3] 模型就绪（{_D3.loaded_seconds:.1f}s, device={_D3.device}）")
+            print(f"[serve_d3] 已挂载 LoRA adapter: {ADAPTER_DIR}", flush=True)
+        print(f"[serve_d3] 模型就绪（{_D3.loaded_seconds:.1f}s, device={_D3.device}）", flush=True)
         _READY.set()
     except Exception as exc:  # noqa: BLE001
         _D3_ERR = f"{type(exc).__name__}: {exc}"
@@ -291,6 +291,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(502, {"detail": f"模型返回缺题: {sorted(answers)}", "raw": result})
                 return
             routing = _route(answers)
+            print(f"[serve_d3] route {body.get('shot') or 'image:' + str(len(body.get('image') or '')) + 'B'} "
+                  f"ms={ms} → {routing.get('label')}（domain={routing.get('domain')} "
+                  f"scene={routing.get('scene')} ps={routing.get('page_state')} conf={routing.get('conf')}）",
+                  flush=True)
             self._json(200, {
                 "ok": True, "ms": ms, "model": pathlib.Path(MODEL_DIR).name,
                 "adapter": pathlib.Path(ADAPTER_DIR).name if ADAPTER_DIR else None,
