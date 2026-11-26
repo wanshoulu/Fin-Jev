@@ -200,6 +200,7 @@ class Handler(BaseHTTPRequestHandler):
         if host and host not in {_host_only(h) for h in ALLOWED_HOSTS}:
             self.send_response(403)
             self._cors()
+            self.send_header("Content-Length", "28")
             self.end_headers()
             self.wfile.write(b"forbidden: local access only")
             return False
@@ -225,19 +226,23 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/token.txt":
             site = self.headers.get("Sec-Fetch-Site", "")
             if site in ("cross-site", "same-protocol-cross-site"):
+                body = json.dumps({"detail": "cross-site token fetch denied"}).encode()
                 self.send_response(403)
                 self._cors()
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(json.dumps({"detail": "cross-site token fetch denied"}).encode())
+                self.wfile.write(body)
                 return
             ip = self.client_address[0] if self.client_address else "?"
             if not _token_fetch_ok(ip):
+                body = json.dumps({"detail": "token fetch rate limit: 2 / 60s per IP"}).encode()
                 self.send_response(429)
                 self._cors()
                 self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
-                self.wfile.write(json.dumps({"detail": "token fetch rate limit: 2 / 60s per IP"}).encode())
+                self.wfile.write(body)
                 return
             body = (ACCESS_TOKEN or "").encode("utf-8")
             self.send_response(200)
@@ -322,6 +327,7 @@ class Handler(BaseHTTPRequestHandler):
         if not ok_ext or not inside or not os.path.isfile(fpath):
             self.send_response(404)
             self._cors()
+            self.send_header("Content-Length", "9")
             self.end_headers()
             self.wfile.write(b"not found")
             return
@@ -341,6 +347,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(413)
         self._cors()
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", "17")
         self.end_headers()
         self.wfile.write(b"payload too large")
 
@@ -348,16 +355,19 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(429)
         self._cors()
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", "23")
         self.end_headers()
         self.wfile.write(b"rate limited, slow down")
 
     def _token_denied(self):
         """R52：token 校验失败统一响应。"""
+        body = json.dumps({"detail": "invalid or missing X-Workbench-Token"}).encode()
         self.send_response(403)
         self._cors()
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(json.dumps({"detail": "invalid or missing X-Workbench-Token"}).encode())
+        self.wfile.write(body)
 
     def _read_body(self):
         """读取请求体；超过 MAX_BODY 直接 413 并返回 None。"""
@@ -392,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
                 mode = ""
             if mode not in ("bocha", "kev"):
                 payload = json.dumps({"ok": False, "detail": "jev must be bocha|kev"}).encode("utf-8")
-                self.send_response(400); self.send_header("Content-Type", "application/json"); self._cors(); self.end_headers(); self.wfile.write(payload)
+                self.send_response(400); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(payload))); self._cors(); self.end_headers(); self.wfile.write(payload)
                 return
             conf = "/etc/systemd/system/fin-jev.service.d/kev-upstream.conf"
             content = ("[Service]\nEnvironment=JEV_UPSTREAM=http://100.79.155.126:8011/v1/systemone\n"
@@ -409,7 +419,7 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 payload = json.dumps({"ok": False, "detail": str(e)}).encode("utf-8")
                 status = 500
-            self.send_response(status); self.send_header("Content-Type", "application/json"); self._cors(); self.end_headers(); self.wfile.write(payload)
+            self.send_response(status); self.send_header("Content-Type", "application/json"); self.send_header("Content-Length", str(len(payload))); self._cors(); self.end_headers(); self.wfile.write(payload)
             return
         if path == "/v1/recompile":
             self._recompile()
@@ -463,6 +473,7 @@ class Handler(BaseHTTPRequestHandler):
             status = 502
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
         self._cors()
         self.end_headers()
         self.wfile.write(payload)
@@ -530,6 +541,7 @@ class Handler(BaseHTTPRequestHandler):
             status = 502
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))   # 显式长度：浏览器侧中间设备对 EOF 型响应体会截断
         self._cors()
         self.end_headers()
         self.wfile.write(payload)
@@ -559,6 +571,7 @@ class Handler(BaseHTTPRequestHandler):
                 method, path, ip, type(e).__name__, e, time.time() - t0), flush=True)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))   # 显式长度：浏览器侧中间设备对 EOF 型响应体会截断
         self._cors()
         self.end_headers()
         try:

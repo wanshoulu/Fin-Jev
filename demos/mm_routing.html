@@ -884,6 +884,7 @@ async function runNav(){
     var r0=await navFetch("/v1/navstart",{sentence:sentence});
     if(!r0.ok){
       if(r0.code===400||r0.code===429){ navStatus("无法开始导航："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）"); return; }
+      if(r0.data===null) throw new Error("navstart "+(r0.err||"响应不完整"));   /* 到达后端但响应体不完整 → 链路异常，显式上报 */
       throw {demo:true};
     }
     sess=r0.data.session_id; target=r0.data.target;
