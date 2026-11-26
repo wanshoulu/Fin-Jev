@@ -33,8 +33,8 @@ const PW_MODULE = process.env.NAV_PW_MODULE || 'D:/llm-training/multimodal-jev/n
 const GLM_BASE = process.env.NAV_GLM_BASE || 'https://open.bigmodel.cn/api/coding/paas/v4/chat/completions';
 const GLM_MODEL = process.env.NAV_GLM_MODEL || 'glm-5.3-flash';
 const GLM_TIMEOUT = 45000;
-const MAX_STEPS = 10;
-const MAX_SESSIONS = 2;
+const MAX_STEPS = 12;
+const MAX_SESSIONS = 4;
 const SESSION_TTL = 15 * 60 * 1000;
 const D3_TIMEOUT = 150000;
 const MAX_ELEMS = 40;
@@ -228,7 +228,7 @@ const DECIDE_SYS = '你是手机银行 App 的导航智能体（UI Agent）。�
   + '{"thought":"账单已展示","action":"done","element":null,"value":null,"reached":true,"final":"已为您打开待缴账单"}\n'
   + '规则：\n'
   + '- element 必须是元素清单里的 n 序号（scroll/done/abort 可为 null）；fill/enter 只能作用于输入框。\n'
-  + '- 需要查看屏幕下方更多内容时用 scroll（value=down/up），不要假设清单之外的内容。\n'
+  + '- 需要查看屏幕下方更多内容时用 scroll（value=down/up），不要假设清单之外的内容。滚动后若元素清单与上一步基本相同（已到底无新内容），不要再重复滚动，换其他路径（如列表项点按、其他入口）或 abort 说明。\n'
   + '- 资金类最终确认按钮（确认办理/确认还款/提交/确定等）只有在页面展示的内容与用户请求的参数完全一致时才可点击；不一致时不要确认，用 abort 在 final 里说明差异。\n'
   + '- reached=true 表示页面已展示用户请求要的结果（办理计划/待缴账单/还款回执/明细/产品页等），此时 action=done；不确定一律 false。\n'
   + '- 页面不支持该业务或无法完成时 abort 并解释。不要重复失败过且原因相同的动作。';

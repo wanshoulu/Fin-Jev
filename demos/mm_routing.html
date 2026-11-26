@@ -94,8 +94,9 @@ body{
 }
 .phone img{width:100%; height:100%; object-fit:cover; display:block;}
 .phone .ph-empty{
-  position:absolute; inset:0; display:flex; flex-direction:column; gap:6px;
-  align-items:center; justify-content:center; color:var(--ink-4); font-size:11px; text-align:center;
+  position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center;
+  padding:12px 14px 16px; color:#e8ebf1; font-size:11px; text-align:center; z-index:2;
+  background:linear-gradient(transparent, rgba(13,17,23,.9) 62%);
 }
 .shot-meta{flex:1; min-width:200px;}
 .shot-meta .desc{font-size:12px; color:var(--ink-3); margin-bottom:10px;}
@@ -326,8 +327,9 @@ body{
       <div class="shot-area">
         <div class="phone">
           <div class="notch"></div>
-          <div class="ph-empty" id="navPhEmpty">↑ 输入一句话开始导航<br>每步实时展示 mock App 截图</div>
-          <img id="navShotImg" alt="导航实时截图" style="display:none">
+          <img id="navShotImg" alt="导航实时截图" src="screenshots/ai-bank-01-home.jpg"
+               onerror="this.style.display='none';document.getElementById('navPhEmpty').style.display='flex'">
+          <div class="ph-empty" id="navPhEmpty">mock 手机银行预览 · 输入一句话开始导航，每步替换为实时截图</div>
         </div>
         <div class="shot-meta">
           <div class="desc">导航在本地 headless Edge 打开 mock 手机银行（:3000）。决策全部由模型做出：GLM（glm-5.3-flash）解析意图与槽位、每步根据真实页面元素清单决定点击/填参/滚动/完成；d3 三题提供视觉证据并在页面异常时硬停；服务端无关键词表、无策略表。最多 10 步。导航服务未运行时自动降级为预置路径模拟（标注「模拟」）。</div>
@@ -753,10 +755,17 @@ function setMode(m){
   document.getElementById("modeNav").classList.toggle("on",m==="nav");
   if(m==="nav") probeNav();
 }
+var NAV_PREVIEW="screenshots/ai-bank-01-home.jpg";
 function setNavShot(dataURL){
   var img=document.getElementById("navShotImg"), em=document.getElementById("navPhEmpty");
-  if(dataURL){ img.src=dataURL; img.style.display="block"; em.style.display="none"; }
-  else{ img.removeAttribute("src"); img.style.display="none"; em.style.display="flex"; }
+  if(dataURL){
+    img.onerror=null;   /* 实时截图（dataURL 不会 404），不再触发预览图兜底 */
+    img.src=dataURL; img.style.display="block"; em.style.display="none";
+  }else{
+    /* 恢复初始态：银行首页预览图 + 底部提示条，避免黑屏观感 */
+    img.onerror=function(){ img.style.display="none"; em.style.display="flex"; };
+    img.src=NAV_PREVIEW; img.style.display="block"; em.style.display="flex";
+  }
 }
 function navStatus(html,err){
   var el=document.getElementById("navStatus");
@@ -832,6 +841,8 @@ function renderNavStep(s){
   else goalLine="目标：「"+esc(gname)+"」 · 第 "+s.step+"/"+(s.max_steps||10)+" 步";
   var stCls=s.done?(s.match?"hit":"err"):"pass";
   var stTxt=s.done?(s.match?"✓ 办成":(STOP_TXT[s.stop_reason]||s.stop_reason||"终止")):"导航中";
+  var actDesc=(s.action&&s.action.desc&&!s.demo)?s.action.desc.slice(0,14):null;   /* 真实导航徽章优先展示模型动作，比 d3 场景名更有信息量 */
+  var badgeName=actDesc?actDesc:(s.done?(s.match?"办成确认":"导航终止"):(SCENE_NAMES[s.state_name]||s.state_name||"页面"));
   var pend=document.getElementById("navPending"); if(pend) pend.remove();
   Array.prototype.forEach.call(tl.querySelectorAll(".pl-st"),function(b){ if(b.textContent==="导航中") b.textContent="已执行"; });
   var idx=Number(tl.getAttribute("data-n")||0);
@@ -840,7 +851,7 @@ function renderNavStep(s){
   var h='<div class="pl '+stCls+'"><div class="pl-head" onclick="toggleNavDetail('+idx+')">'
     +(img?'<img class="step-shot" src="'+img+'" alt="第'+s.step+'步截图">':'')
     +'<span class="pl-tag">S'+s.step+'</span>'
-    +'<span class="pl-name">'+esc(SCENE_NAMES[s.state_name]||s.state_name||"页面")+(s.demo?' <span class="g-kind">模拟</span>':'')+'</span>'
+    +'<span class="pl-name">'+esc(badgeName)+(s.demo?' <span class="g-kind">模拟</span>':'')+'</span>'
     +'<span class="pl-st '+stCls+'">'+stTxt+'</span>'
     +'<span class="pl-ms">'+(s.elapsed_ms!=null?s.elapsed_ms+" ms":"")+'</span></div>'
     +'<p class="pl-brief">观察：'+vLine+(actLine?"　｜　"+actLine:"")+'</p>'
@@ -862,6 +873,11 @@ function renderNavSummary(target,steps,done,match,stopReason,v,ms,demo,final){
       +'<span class="intent-chip">'+esc(target.label)+(slotArr.length?("（"+esc(slotArr.join(" · "))+"）"):"")+'</span><span class="intent-arrow">→</span>'
       +'<span class="intent-chip mono">'+esc(target.goal_desc||"")+'</span></div>';
   }
+  /* 导航运行同样计入会话统计：运行次数 / 办成→已路由 / 页面异常→异常态（低置信为单步判定语义，不计） */
+  STATS.n++; if(match) STATS.route++; if(stopReason==="abnormal") STATS.abn++;
+  document.getElementById("st_n").textContent=STATS.n;
+  document.getElementById("st_route").textContent=STATS.route;
+  document.getElementById("st_abn").textContent=STATS.abn;
   if(v){
     h+='<div class="conf-row">到达页 d3 观察：域 '+(v.domain?(DOM_NAMES[v.domain]||v.domain):"无")
       +' · 场景 '+(SCENE_NAMES[v.scene]||v.scene||"无")
