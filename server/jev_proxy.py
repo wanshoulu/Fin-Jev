@@ -537,22 +537,37 @@ class Handler(BaseHTTPRequestHandler):
     def _forward_nav(self, method, path, body):
         """转发连续导航服务：/v1/nav* → serve_nav.js（navstep 含截图+推理+点击，超时 180s）"""
         target = NAV_BASE + path
+        ip = self.client_address[0] if self.client_address else "?"
+        t0 = time.time()
+        print("[navfwd] %s %s ip=%s → 上游请求中…" % (method, path, ip), flush=True)
         req = urllib.request.Request(
             target, data=body if method == "POST" else None, method=method,
             headers={"Content-Type": "application/json"})
         try:
             with opener.open(req, timeout=180) as resp:
                 payload, status = resp.read(), resp.status
+            print("[navfwd] %s %s ip=%s ← 上游 %s %dB %.2fs → 回写浏览器" % (
+                method, path, ip, status, len(payload), time.time() - t0), flush=True)
         except urllib.error.HTTPError as e:
             payload, status = e.read(), e.code
+            print("[navfwd] %s %s ip=%s ← 上游 HTTP %s %dB %.2fs" % (
+                method, path, ip, status, len(payload), time.time() - t0), flush=True)
         except Exception as e:  # noqa: BLE001
             payload = json.dumps({"detail": "nav forwarder error: %s" % e}).encode("utf-8")
             status = 502
+            print("[navfwd] %s %s ip=%s ← 上游异常 %s: %s（%.2fs）" % (
+                method, path, ip, type(e).__name__, e, time.time() - t0), flush=True)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self._cors()
         self.end_headers()
-        self.wfile.write(payload)
+        try:
+            self.wfile.write(payload)
+            print("[navfwd] %s %s ip=%s ✓ 已写回 %dB（总耗时 %.2fs）" % (
+                method, path, ip, len(payload), time.time() - t0), flush=True)
+        except (BrokenPipeError, ConnectionResetError) as e:
+            print("[navfwd] %s %s ip=%s ✗ 写回失败 %s: %s" % (
+                method, path, ip, type(e).__name__, e), flush=True)
 
     def log_message(self, *a):  # 安静模式
         pass
