@@ -14,7 +14,7 @@
  *   POST /v1/navstart     {sentence} → {ok, session_id, target{intent,label,slots,goal_desc,done_hint}, max_steps, glm_ms}
  *   POST /v1/navstep      {session_id} → {ok, step, done, match, stop_reason, observe, action, model, final}
  *   POST /v1/navclose     {session_id} → {ok}
- * 会话：内存 Map，上限 2 个，15 分钟 TTL 自动回收；每会话一个 headless Edge 实例。
+ * 会话：内存 Map，上限 4 个，15 分钟 TTL 自动回收；每会话一个 headless Edge 实例。
  * 环境变量：NAV_PORT / NAV_D3_BASE / NAV_BANK_URL / NAV_EDGE / NAV_PW_MODULE / NAV_GLM_BASE / NAV_GLM_MODEL
  */
 
@@ -261,7 +261,7 @@ async function navstart(body) {
   const sentence = String((body && body.sentence) || '').trim();
   if (!sentence) return [400, { ok: false, detail: 'sentence 为空' }];
   if (sessions.size >= MAX_SESSIONS) {
-    return [429, { ok: false, detail: '导航会话已达上限（2），请 navclose 释放或等待 TTL 回收' }];
+    return [429, { ok: false, detail: '导航会话已达上限（' + MAX_SESSIONS + '），请 navclose 释放或等待 TTL 回收' }];
   }
 
   /* 1. 模型意图理解：一句话 → 意图 + 槽位 + 到达目标（替代关键词表，支持任意表述） */
