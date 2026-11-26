@@ -253,8 +253,8 @@ async function navstep(body) {
   touchTTL(id);
   const t0 = Date.now();
   try {
-    /* 1. 观察：截图 */
-    const buf = await sess.page.locator('.phone').screenshot({ type: 'jpeg', quality: 90 });
+    /* 1. 观察：截图（q70：公网经 SSH 隧道传输，控制响应体积；d3 输入端不受影响） */
+    const buf = await sess.page.locator('.phone').screenshot({ type: 'jpeg', quality: 70 });
     const img = 'data:image/jpeg;base64,' + buf.toString('base64');
     const same = sess.lastImg === img;
     sess.sameCount = same ? sess.sameCount + 1 : 0;
@@ -296,7 +296,7 @@ async function navstep(body) {
     else if (sess.sameCount >= 2) { done = true; stop_reason = 'no_progress'; }
     else if (step >= MAX_STEPS) { done = true; stop_reason = 'max_steps'; }
 
-    console.log(`[nav] step ${step} ${sess.id} state=${state} d3=${d3.ok ? `${verdict ? verdict.label : 'ok'}` : `降级(${d3.err})`} → ${plan ? plan.desc : '停'}${done ? ` · ${stop_reason}` : ''}`);
+    console.log(`[nav] step ${step} ${sess.id} state=${state} d3=${d3.ok ? `${verdict ? verdict.label : 'ok'}` : `降级(${d3.err})`} img=${buf.length}B → ${plan ? plan.desc : '停'}${done ? ` · ${stop_reason}` : ''}`);
     return [200, {
       ok: true, step, max_steps: MAX_STEPS,
       state, state_name: STATE_NAMES[state] || state,

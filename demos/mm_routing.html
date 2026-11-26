@@ -789,6 +789,8 @@ async function navFetch(path,payload,noAbort){
   var txt=await r.text(), data=null;
   try{ data=JSON.parse(txt); }catch(e){}
   var ok=r.status>=200&&r.status<300;
+  if(ok&&data===null) return {ok:false,code:r.status,data:null,
+    err:"响应不完整（HTTP "+r.status+" · JSON 解析失败 · 仅收到 "+txt.length+"B）"};   /* 传输层截断显式化 */
   return {ok:ok,code:r.status,data:data,err:ok?null:((data&&data.detail)||("HTTP "+r.status+" "+String(txt).slice(0,160)))};
 }
 function toggleNavDetail(i){ var el=document.getElementById("nsd_"+i); if(el) el.classList.toggle("open"); }
@@ -890,7 +892,11 @@ async function runNav(){
     else if(done) navStatus("导航终止："+esc(STOP_TXT[stopReason]||stopReason||"未到达"),true);
   }catch(e){
     if(e&&e.name==="AbortError"){ navStatus("导航已中止",true); }
-    else{ demo=true; await simulateNav(sentence); }   /* nav 服务不可达 → 本地模拟导航 */
+    else{
+      /* 后端链路中途异常（截断/断连/超时）：报出原因再转本地模拟，不再静默吞掉 */
+      navStatus("后端链路异常（"+esc(String((e&&e.message)||e)).slice(0,120)+"）· 转本地模拟",true);
+      demo=true; await simulateNav(sentence);
+    }
   }finally{
     if(sess){ try{ navFetch("/v1/navclose",{session_id:sess},true); }catch(_e){} }
     navRunning=false; go.disabled=false; stop.style.display="none";
