@@ -712,7 +712,7 @@ async function runRoute(){
 }
 
 /* ================= 连续导航（一句话 → 目标锚定 → observe·act 循环 → 到达目标页） ================= */
-var navMode="step", navBase="", navRunning=false, navAC=null, NAV_GOAL_NAME="";
+var navMode="step", navBase="", navRunning=false, navAC=null, NAV_GOAL_NAME="", navOK=false, navProbeT=0;
 if(location.protocol!=="http:"&&location.protocol!=="https:") navBase="http://127.0.0.1:8789"; // file:// 直连 serve_nav（CORS 已放开）
 var STOP_TXT={arrived:"到达目标",abnormal:"页面异常",no_route:"无可用动作",no_progress:"页面无进展",max_steps:"步数上限",act_failed:"点击失败"};
 var NAV_SENTS=["给张伟转账1000元","我要交燃气费","查一下账户余额","看看龙钱宝","我的卡丢了"];
@@ -761,17 +761,21 @@ function navStatus(html,err){
   el.innerHTML=html; el.style.color=err?"#b45309":"";
 }
 async function probeNav(){
+  if(Date.now()-navProbeT<30000) return navOK;   /* 30s 内复用上次探测结果，避免公网环境反复探测产生 502 噪音 */
   try{
     var r=await fetch((navBase||"")+"/v1/navhealthz",{cache:"no-store"});
     var d=await r.json();
     navOK=r.ok&&d.ok;
+    navProbeT=Date.now();
     navStatus(navOK
       ?("导航服务可用（headless Edge + d3 三题 · 会话 "+(d.sessions||0)+"/"+(d.max_sessions||2)+"）· 输入一句话开始")
       :("导航服务异常（"+esc(d.error||"playwright 未就绪")+"）· 点击「开始导航」将走本地模拟"));
   }catch(e){
     navOK=false;
+    navProbeT=Date.now();
     navStatus("导航服务不可达（serve_nav.js 未运行）· 点击「开始导航」将走本地模拟导航（预置路径 + 本地基线）");
   }
+  return navOK;
 }
 async function navFetch(path,payload,noAbort){
   var r=await fetch((navBase||"")+path,{
@@ -856,6 +860,7 @@ async function runNav(){
   setNavShot(null);
   var t0=Date.now(), sess=null, steps=0, done=false, match=false, stopReason=null, demo=false, target=null, lastV=null;
   try{
+    if(!(await probeNav())) throw {demo:true};   /* 探测已知后端不可用 → 直接走本地模拟，不再请求 navstart 挨 502 */
     var r0=await navFetch("/v1/navstart",{sentence:sentence});
     if(!r0.ok){
       if(r0.code===400||r0.code===429){ navStatus("无法开始导航："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）"); return; }
