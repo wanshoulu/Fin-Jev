@@ -18,13 +18,15 @@
  *     —— JEV 增训样本（正确拒点 / 误决策案例即硬负样本）
  *   每步返回全部 probe 打分明细 —— 这正是 JEV 页面决策能力的可视化验证
  *
- * 运行： node server/serve_nav.js   （依赖本机 :3000 mock 银行 + :8788 serve_d3 + :8787 jev_proxy + ROOT/glm_key.local.json）
- * 端口： 127.0.0.1:8789（jev_proxy 将 /v1/nav* 转发至此；服务器无 GPU/内存受限，仅本地跑）
+ * 运行： node server/serve_nav.js   （依赖 mock 银行 :3000 + serve_d3 :8788 + jev_proxy + ROOT/glm_key.local.json）
+ * 端口： 127.0.0.1:8789（jev_proxy 将 /v1/nav* 转发至此；本机与服务器均可部署——服务器经 systemd fin-jev-nav.service 运行，
+ *       NAV_JEV_BASE 指向本机 jev_proxy；d3 不可用时自动降级：仅凭 JEV 判据决策，导航流程不中断）
  * 接口：
  *   GET  /v1/navhealthz   {ok, sessions, graph, jev, glm, bank, d3}
- *   POST /v1/navstart     {sentence} → 多意图 {ok, accepted:false, multi:true, tasks, original, probes}
- *                                   单意图 {ok, accepted, target{intent,label,slots,goal_desc,done_hint,gate}, probes, jev_ms}
- *   POST /v1/navstep      {session_id} → {ok, step, done, match, stop_reason, observe, action, model{probes,decision}, final}
+ *   POST /v1/navstart     {sentence} → 多意图 {ok, accepted:false, multi:true, tasks, original, probes, io}
+ *                                   单意图 {ok, accepted, target{intent,label,slots,goal_desc,done_hint,gate}, probes, jev_ms, io}
+ *   POST /v1/navstep      {session_id} → {ok, step, done, match, stop_reason, observe, action, model{probes,decision}, final, io}
+ *                         （io = 模型完整输入输出：JEV/GLM 请求体 + 原始返回，前端管道检查器展开展示）
  *   POST /v1/navclose     {session_id} → {ok}
  * 会话：内存 Map，上限 4 个，15 分钟 TTL 自动回收；每会话一个 headless Edge 实例。
  * 环境变量：NAV_PORT / NAV_D3_BASE / NAV_BANK_URL / NAV_EDGE / NAV_PW_MODULE / NAV_JEV_BASE / NAV_GLM_MODEL
@@ -196,12 +198,14 @@ async function glmJson(messages) {
   if (!r.ok) return r;
   const m = String(r.text).match(/```(?:json)?\s*([\s\S]*?)```/) || String(r.text).match(/(\[[\s\S]*\]|\{[\s\S]*\})/);
   try {
-    return { ok: true, json: JSON.parse((m ? m[1] : String(r.text)).trim()), ms: r.ms };
+    return { ok: true, json: JSON.parse((m ? m[1] : String(r.text)).trim()), ms: r.ms, io: { req: messages, raw: r.text } };
   } catch (e) {
-    const r2 = await glmChat(messages.concat([{ role: 'user', content: '上面的回答不是合法 JSON。只输出一个合法 JSON，不要任何解释或代码围栏。' }]));
-    if (!r2.ok) return { ok: false, err: r2.err, ms: r.ms + r2.ms };
-    try { return { ok: true, json: JSON.parse(String(r2.text).replace(/```(?:json)?|```/g, '').trim()), ms: r.ms + r2.ms }; }
-    catch (e2) { return { ok: false, err: 'GLM 输出无法解析为 JSON', ms: r.ms + r2.ms }; }
+    const retryMsgs = messages.concat([{ role: 'user', content: '上面的回答不是合法 JSON。只输出一个合法 JSON，不要任何解释或代码围栏。' }]);
+    const r2 = await glmChat(retryMsgs);
+    if (!r2.ok) return { ok: false, err: r2.err, ms: r.ms + r2.ms, io: { req: messages, raw: r.text, note: '首次输出非法 JSON，重试请求失败：' + r2.err } };
+    try { return { ok: true, json: JSON.parse(String(r2.text).replace(/```(?:json)?|```/g, '').trim()), ms: r.ms + r2.ms,
+      io: { req: retryMsgs, raw: r2.text, first_raw: r.text, note: '首次输出非法 JSON（first_raw），已追加纠错指令重试' } }; }
+    catch (e2) { return { ok: false, err: 'GLM 输出无法解析为 JSON', ms: r.ms + r2.ms, io: { req: retryMsgs, raw: r2.text, first_raw: r.text } }; }
   }
 }
 
@@ -291,9 +295,9 @@ async function llmExtractSlots(sentence, schema) {
       '收款人只取姓名本身；没有出现的槽位不要出现在 JSON 里；不得编造、不得推测；除 JSON 外不要输出任何文字。' },
     { role: 'user', content: '槽位定义：' + JSON.stringify(schema) + '\n用户句子：' + sentence },
   ]);
-  if (!r.ok) return { ok: false, err: r.err, ms: r.ms };
+  if (!r.ok) return { ok: false, err: r.err, ms: r.ms, io: r.io || null };
   const j = r.json && typeof r.json === 'object' && !Array.isArray(r.json) ? r.json : null;
-  if (!j) return { ok: false, err: 'GLM 槽位输出非对象', ms: r.ms };
+  if (!j) return { ok: false, err: 'GLM 槽位输出非对象', ms: r.ms, io: r.io };
   const slots = {};
   for (const k of Object.keys(schema)) {
     const v = j[k];
@@ -303,7 +307,7 @@ async function llmExtractSlots(sentence, schema) {
     if (k === 'amount' && !/^\d+(?:\.\d+)?元$/.test(s)) continue;   /* 金额必须归一化，否则弃用 */
     slots[k] = s;
   }
-  return { ok: true, slots, ms: r.ms };
+  return { ok: true, slots, ms: r.ms, io: r.io };
 }
 
 async function extractSlots(sentence, schemaOrKey) {
@@ -312,7 +316,7 @@ async function extractSlots(sentence, schemaOrKey) {
     const r = await llmExtractSlots(sentence, schema);
     if (r.ok && Object.keys(r.slots).length) {
       console.log(`[nav] 槽位 GLM 抽取 ${r.ms}ms → ` + JSON.stringify(r.slots));
-      return { slots: r.slots, source: 'glm', llm_ms: r.ms };
+      return { slots: r.slots, source: 'glm', llm_ms: r.ms, io: r.io || null };
     }
     if (r.err) console.log('[nav] 槽位 GLM 抽取失败 → 正则兜底：' + r.err);
   }
@@ -445,12 +449,12 @@ async function glmDecomposeTasks(sentence) {
       '只输出 JSON 数组 [{"utterance":"..."}]，通常 2-4 项；除 JSON 外不要输出任何文字。' },
     { role: 'user', content: sentence },
   ]);
-  if (!r.ok) return { ok: false, err: r.err, ms: r.ms };
+  if (!r.ok) return { ok: false, err: r.err, ms: r.ms, io: r.io || null };
   const arr = Array.isArray(r.json) ? r.json : null;
   const tasks = arr ? arr.map(x => ({ utterance: String((x && x.utterance) || '').trim() }))
     .filter(t => t.utterance && t.utterance.length <= 100) : [];
-  if (tasks.length < 2) return { ok: false, err: '拆解结果不足两个可执行任务', ms: r.ms };
-  return { ok: true, tasks: tasks.slice(0, 4), ms: r.ms };
+  if (tasks.length < 2) return { ok: false, err: '拆解结果不足两个可执行任务', ms: r.ms, io: r.io };
+  return { ok: true, tasks: tasks.slice(0, 4), ms: r.ms, io: r.io };
 }
 
 /* 打分明细归一：answers → [{key,label,score}]（按分排序），供返回与日志 */
@@ -458,6 +462,13 @@ function scoreList(answers, labels) {
   return Object.keys(answers)
     .map(k => ({ key: k, label: labels[k] || k, score: (answers[k] && typeof answers[k].noul === 'number') ? answers[k].noul : 0 }))
     .sort((a, b) => b.score - a.score);
+}
+
+/* io 输出用：questions 去掉逐题重复的 instructions（instructions 整体放 io.jev.instructions，避免报文重复膨胀） */
+function stripIns(qs) {
+  const o = {};
+  Object.keys(qs || {}).forEach(k => { const q = qs[k]; o[k] = { type: q.type, criteria: q.criteria }; });
+  return o;
 }
 
 async function navstart(body) {
@@ -513,6 +524,14 @@ async function navstart(body) {
   const probes = scores.map(s => ({ key: s.key, label: s.label, score: Math.round(s.score * 1000) / 1000 }));
   const multiScore = (jev.answers.multi_intent || {}).noul || 0;
 
+  /* 模型 I/O 留档（R65）：JEV 意图理解完整请求/响应 + GLM 槽位抽取报文，随响应回传供前端管道检查器展示 */
+  const io = {
+    jev: { model: JEV_MODEL, endpoint: JEV_BASE, instructions: INS_START,
+      state: { message: sentence, slot_candidates: JSON.stringify(candSlots) },
+      questions: stripIns(questions), answers: jev.answers, ms: jev.ms },
+    slots: { source: slotRes.source, schema: mergedSchema, candidates: candSlots, glm: slotRes.io || null },
+  };
+
   /* 3.5 多意图 → GLM 拆解为单意图任务队列（不建导航会话，由前端逐任务走 navstart→navstep） */
   if (multiScore >= MULTI_GATE) {
     const dec = await glmDecomposeTasks(sentence);
@@ -523,7 +542,8 @@ async function navstart(body) {
     if (dec.ok) {
       console.log(`[nav] 多意图(${multiScore}) GLM 拆解 ${dec.ms}ms → ` + dec.tasks.map(t => '「' + t.utterance + '」').join(' → '));
       return [200, { ok: true, accepted: false, multi: true, reason: 'JEV 检测到多意图（multi_intent=' + multiScore + '），GLM 已拆解为 ' + dec.tasks.length + ' 个单意图任务',
-        tasks: dec.tasks, original: sentence, gate: { multi_intent: Math.round(multiScore * 1000) / 1000 }, probes, jev_ms: jev.ms, glm_ms: dec.ms, slot_source: slotRes.source, model: JEV_MODEL }];
+        tasks: dec.tasks, original: sentence, gate: { multi_intent: Math.round(multiScore * 1000) / 1000 }, probes, jev_ms: jev.ms, glm_ms: dec.ms, slot_source: slotRes.source, model: JEV_MODEL,
+        io: Object.assign({}, io, { decompose: { ok: dec.ok, tasks: dec.ok ? dec.tasks : null, err: dec.ok ? null : dec.err, ms: dec.ms, glm: dec.io || null } }) }];
     }
     /* 拆解失败 → 降级按单意图继续（不报错） */
     console.log('[nav] 多意图拆解失败，降级单意图：' + dec.err);
@@ -547,7 +567,7 @@ async function navstart(body) {
     trace('rej_' + new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14) + '_' + crypto.randomBytes(3).toString('hex'), 'start_rejected', {
       sentence, reason: gate.reason, gate, questions, jev_answers: jev.answers, multi_intent: multiScore, slot_source: slotRes.source, slot_candidates: candSlots,
     });
-    return [200, { ok: true, accepted: false, reason: gate.reason, gate, probes, jev_ms: jev.ms, slot_source: slotRes.source, model: JEV_MODEL }];
+    return [200, { ok: true, accepted: false, reason: gate.reason, gate, probes, jev_ms: jev.ms, slot_source: slotRes.source, io, model: JEV_MODEL }];
   }
 
   /* 4. 场景锚定：top1 域下场景 argmax（域与场景同一次请求内已并行打分） */
@@ -567,7 +587,7 @@ async function navstart(body) {
     trace('rej_' + new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14) + '_' + crypto.randomBytes(3).toString('hex'), 'start_rejected', {
       sentence, reason: gate.reason, gate, questions, jev_answers: jev.answers, multi_intent: multiScore, slot_source: slotRes.source, slot_candidates: candSlots,
     });
-    return [200, { ok: true, accepted: false, reason: gate.reason, gate, probes, jev_ms: jev.ms, slot_source: slotRes.source, model: JEV_MODEL }];
+    return [200, { ok: true, accepted: false, reason: gate.reason, gate, probes, jev_ms: jev.ms, slot_source: slotRes.source, io, model: JEV_MODEL }];
   }
 
   /* 5. 槽位校验分 → 通过则槽位生效，否则清空（转账类业务缺参会在 navstep 显式中止）；
@@ -628,7 +648,7 @@ async function navstart(body) {
   });
   console.log(`[nav] start ${id} → ${target.intent}#${target.scene}「${sentence}」slots=${JSON.stringify(slots)}(${slotRes.source})`
     + ` gate=top1(${top1.key})=${gate.top1.score} gap=${gap} jev=${jev.ms}ms`);
-  return [200, { ok: true, accepted: true, session_id: id, target, probes, gate, max_steps: MAX_STEPS, jev_ms: jev.ms, slot_source: slotRes.source, model: JEV_MODEL }];
+  return [200, { ok: true, accepted: true, session_id: id, target, probes, gate, max_steps: MAX_STEPS, jev_ms: jev.ms, slot_source: slotRes.source, io, model: JEV_MODEL }];
 }
 
 /* ---------- navstep：JEV probe 阵列页面决策（到达 / 点击 / 填参 / 滚动 / 计划确认，单请求并行打分） ----------
@@ -658,6 +678,7 @@ async function navstep(body) {
         ok: true, step: 1, max_steps: MAX_STEPS, done: true, match: false, stop_reason: 'missing_slots',
         state_name: tg.label, target: tg, observe: { image: null, verdict: null, degraded: true, d3_ms: 0, d3_error: '未观察（缺参数中止）', elements: 0 },
         action: null, model: { jev_ms: 0, probes: [], decision: { type: 'abort', label: '缺参数中止', reason: tg.missing_slots.join('/') } },
+        io: { note: '缺参数前置校验中止：未截图、未调用 d3/JEV 模型', missing_slots: tg.missing_slots },
         final, elapsed_ms: Date.now() - t0,
       }];
     }
@@ -689,7 +710,7 @@ async function navstep(body) {
     /* 2. JEV probe 阵列构建（真白屏跳过）；questions/labels 提升到函数作用域（回退分支落盘要用） */
     let jev = { ok: false, err: hardStop ? '页面异常跳过' : '未执行', ms: 0 };
     let probes = [], arriveScore = 0, decision = null, execErr = null, execDesc = null;
-    let questions = null, labels = null;
+    let questions = null, labels = null, state = null;
     if (!hardStop) {
       questions = {
         arrive: {
@@ -702,7 +723,7 @@ async function navstep(body) {
         scrolldown: { type: 'noul', instructions: INS_STEP, criteria: { true: '目标入口或内容大概率在屏幕下方当前看不到的位置，需要向下滚动查看', false: '当前屏已能看到相关内容，或向下滚动无帮助' } },
       };
       labels = { arrive: '到达目标', scrolldown: '向下滚动' };
-      const state = {
+      state = {
         message: sess.sentence,
         goal: tg.goal_desc,
         done_hint: tg.done_hint,
@@ -780,6 +801,19 @@ async function navstep(body) {
         }
       }
     }
+
+    /* 模型 I/O 留档（R65）：JEV 页面决策完整请求/响应 + d3 观察摘要，随响应回传供前端管道检查器展示；
+     * 截图 base64 已在 observe.image，io 不重复携带，避免响应膨胀 */
+    const io = {
+      jev: hardStop ? { skipped: 'd3 判页面异常且 DOM 零元素（真白屏硬保护），本轮跳过模型决策' } : {
+        model: JEV_MODEL, endpoint: JEV_BASE, instructions: INS_STEP, state,
+        questions: questions ? stripIns(questions) : null,
+        answers: jev.ok ? jev.answers : null,
+        err: jev.ok ? null : jev.err, ms: jev.ms,
+      },
+      d3: { ok: d3.ok, ms: d3.ms, err: d3.ok ? null : d3.err, verdict,
+        image: '（base64 截图见 observe.image，io 不重复携带）' },
+    };
 
     /* 4. 执行决策动作（点击 / 填参 / 滚动 / 计划确认），全部经设备执行层适配器；
      *    全低分 abort 时回退上一页重选一次（机械动作，重选仍由 JEV 打分决定） */
@@ -861,6 +895,7 @@ async function navstep(body) {
           observe: { image: shot, verdict: null, degraded: true, d3_ms: 0, d3_error: '回退步未观察（机械回退，下一步重新截图判定）', elements: 0 },
           action: { desc: '全低分 → ' + backDesc + '重选' },
           model: { jev_ms: jev.ms, probes, decision: { type: 'back', label: '全低分回退重选', reason: decision.reason }, arrive: Math.round(arriveScore * 1000) / 1000, jev_error: null },
+          io,
           final: null,
           elapsed_ms: Date.now() - t0,
         }];
@@ -922,6 +957,7 @@ async function navstep(body) {
         arrive: Math.round(arriveScore * 1000) / 1000,
         jev_error: jev.ok ? null : jev.err,
       },
+      io,
       final,
       elapsed_ms: Date.now() - t0,
     }];

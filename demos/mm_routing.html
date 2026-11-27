@@ -325,7 +325,7 @@ body{
     </div>
 
     <div class="card" id="navCard" style="display:none">
-      <h2>连续导航 <span class="n">一句话 → JEV 意图理解（多意图 GLM 拆解 · 槽位 GLM 抽取）→ observe（截图+probe 阵列）→ act（点击/填参/确认）循环 → 办成</span></h2>
+      <h2>连续导航 <span class="n">一句话 → JEV 意图理解（多意图 GLM 拆解 · 槽位 GLM 抽取）→ observe（截图+probe 阵列）→ act（点击/填参/确认）循环 → 办成 · 执行管道逐节点可点击，展开查看 GLM/JEV/d3 模型完整输入输出</span></h2>
       <div class="nav-ask">
         <div class="desc" id="navStatus">导航服务检测中…</div>
         <div class="inrow">
@@ -828,6 +828,31 @@ async function navFetch(path,payload,noAbort){
   }
 }
 function toggleNavDetail(i){ var el=document.getElementById("nsd_"+i); if(el) el.classList.toggle("open"); }
+/* ---- 管道检查器：模型输入输出报文块（与 semantic_routing / tool_gate 展开报文同款） ---- */
+function ioBlock(title,obj){
+  return "── " + title + " ──\n" + ((obj===null||obj===undefined) ? "—" : JSON.stringify(obj,null,2));
+}
+function nextNavIdx(){
+  var tl=document.getElementById("navTimeline");
+  var idx=Number(tl.getAttribute("data-n")||0);
+  tl.setAttribute("data-n",idx+1);
+  return idx;
+}
+/* 附加管道节点（意图理解 navstart / 多意图拆解等）：与步骤节点同款 .pl 结构，可点击展开输入输出 */
+function renderNavIONode(tag,name,stCls,stTxt,ms,brief,sections){
+  var tl=document.getElementById("navTimeline");
+  var em=tl.querySelector(".empty"); if(em) em.remove();
+  var pend=document.getElementById("navPending"); if(pend) pend.remove();
+  var idx=nextNavIdx();
+  var detail=sections.filter(function(x){ return x; }).map(function(x){ return ioBlock(x.t,x.o); }).join("\n\n");
+  var h='<div class="pl '+stCls+'"><div class="pl-head" onclick="toggleNavDetail('+idx+')">'
+    +'<span class="pl-tag">'+esc(tag)+'</span><span class="pl-name">'+esc(name)+'</span>'
+    +'<span class="pl-st '+stCls+'">'+esc(stTxt)+'</span>'
+    +'<span class="pl-ms">'+(ms!=null?ms+" ms":"")+'</span></div>'
+    +'<p class="pl-brief">'+brief+'</p>'
+    +'<div class="pl-detail" id="nsd_'+idx+'"><pre>'+esc(detail)+'</pre></div></div>';
+  tl.insertAdjacentHTML("beforeend",h);
+}
 function renderNavStep(s){
   var tl=document.getElementById("navTimeline");
   var em=tl.querySelector(".empty"); if(em) em.remove();
@@ -863,6 +888,26 @@ function renderNavStep(s){
   var idx=Number(tl.getAttribute("data-n")||0);
   tl.setAttribute("data-n",idx+1);
   var img=s.observe&&s.observe.image;
+  /* 管道检查器：优先分块展示模型完整输入输出（io 由 serve_nav 随步返回）；无 io 时退回整体 JSON */
+  var detail;
+  if(s.io){
+    var secs=[];
+    if(s.io.jev){
+      if(s.io.jev.skipped) secs.push({t:"模型输入 · JEV 本轮跳过",o:s.io.jev});
+      else{
+        secs.push({t:"模型输入 · JEV systemone 请求体",o:{model:s.io.jev.model,endpoint:s.io.jev.endpoint,instructions:s.io.jev.instructions,state:s.io.jev.state,questions:s.io.jev.questions}});
+        secs.push({t:"模型原始返回 · answers",o:(s.io.jev.answers!=null)?s.io.jev.answers:{err:s.io.jev.err}});
+      }
+    }
+    if(s.io.note) secs.push({t:"本轮说明",o:s.io.note});
+    if(s.io.d3) secs.push({t:"d3 视觉观察 · d3route 响应摘要",o:s.io.d3});
+    secs.push({t:"决策 decision",o:s.model&&s.model.decision});
+    if(s.action) secs.push({t:"执行结果",o:s.action});
+    if(s.final) secs.push({t:"模型答复 final",o:s.final});
+    detail=secs.map(function(x){ return ioBlock(x.t,x.o); }).join("\n\n");
+  }else{
+    detail=JSON.stringify({step:s.step,state:s.state,verdict:v,elements:s.observe&&s.observe.elements,action:s.action,model:s.model,final:s.final,stop_reason:s.stop_reason||undefined,demo:s.demo||undefined},null,1);
+  }
   var h='<div class="pl '+stCls+'"><div class="pl-head" onclick="toggleNavDetail('+idx+')">'
     +(img?'<img class="step-shot" src="'+img+'" alt="第'+s.step+'步截图">':'')
     +'<span class="pl-tag">S'+s.step+'</span>'
@@ -872,7 +917,7 @@ function renderNavStep(s){
     +'<p class="pl-brief">观察：'+vLine+(actLine?"　｜　"+actLine:"")+'</p>'
     +'<p class="pl-brief" style="color:var(--ink-2)">'+goalLine+'</p>'
     +'<div class="pl-detail" id="nsd_'+idx+'">'+(img?'<img class="step-big" src="'+img+'" alt="第'+s.step+'步大图">':'')
-    +'<pre>'+esc(JSON.stringify({step:s.step,state:s.state,verdict:v,elements:s.observe&&s.observe.elements,action:s.action,model:s.model,final:s.final,stop_reason:s.stop_reason||undefined,demo:s.demo||undefined},null,1))+'</pre></div></div>';
+    +'<pre>'+esc(detail)+'</pre></div></div>';
   if(!s.done) h+='<div class="pl-arrow">▼</div>';
   tl.insertAdjacentHTML("beforeend",h);
 }
@@ -921,6 +966,8 @@ async function runTaskCore(sentence,startResp){
     var r0=startResp||await navFetch("/v1/navstart",{sentence:sentence});
     if(!r0.ok){
       if(r0.data===null) throw new Error("navstart "+(r0.err||"响应不完整"));
+      renderNavIONode("N0","意图理解 navstart","err","失败",null,"HTTP "+r0.code+" · "+esc(r0.err||"响应不完整"),
+        [{t:"navstart 错误",o:{code:r0.code,err:r0.err}}]);
       navStatus("导航未启动："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）");
       return {done:false,match:false,stop_reason:"start_failed",steps:0,target:null,final:r0.err};
     }
@@ -933,6 +980,7 @@ async function runTaskCore(sentence,startResp){
       renderNavStep({step:0,max_steps:0,state:"gate_failed",state_name:"门控拦截",observe:{image:null,verdict:null,degraded:true,d3_error:"未观察（意图阶段拦截）",elements:0},
         done:true,match:false,stop_reason:"gate_failed",action:null,
         model:{jev_ms:r0.data.jev_ms,probes:r0.data.probes||[],decision:{type:"abort",label:"意图门控拦截",reason:r0.data.reason},jev_error:null},
+        io:r0.data.io||{note:"未过意图门控（打分明细见 model.probes）"},
         final:"JEV 意图理解未过门控："+(r0.data.reason||"")+"，请换个说法重述",elapsed_ms:r0.data.jev_ms});
       return {done:true,match:false,stop_reason:"gate_failed",steps:0,target:null,final:r0.data.reason};
     }
@@ -946,6 +994,20 @@ async function runTaskCore(sentence,startResp){
       +" · 目标："+esc(target.goal_desc)
       +" · 门控 top1 "+esc((g2.top1&&g2.top1.name)||"")+" "+fmt(g2.top1&&g2.top1.score)+" / gap "+fmt(g2.gap)
       +" · 打分 "+r0.data.jev_ms+"ms · 最多 "+r0.data.max_steps+" 步");
+    /* 管道节点 N0：意图理解（navstart）——JEV 意图打分 + GLM 槽位抽取完整输入输出 */
+    var ioS=r0.data.io||null;
+    if(ioS&&ioS.jev){
+      renderNavIONode("N0","意图理解 navstart","hit","通过",r0.data.jev_ms,
+        esc(target.label)+" · 目标 "+esc(target.goal_desc)+(slotTxt?" · 槽位("+esc(slotTxt)+")":"（无槽位）")
+        +" · top1 "+esc((g2.top1&&g2.top1.name)||"")+" "+fmt(g2.top1&&g2.top1.score)+" / gap "+fmt(g2.gap),
+        [
+          {t:"模型输入 · JEV 意图理解请求体（6 域 + 7 场景 + 多意图 + 槽位校验 是非题并行）",o:{model:ioS.jev.model,endpoint:ioS.jev.endpoint,instructions:ioS.jev.instructions,state:ioS.jev.state,questions:ioS.jev.questions}},
+          {t:"模型原始返回 · answers",o:ioS.jev.answers},
+          {t:"门控裁决 gate",o:{top1:g2.top1,gap:g2.gap,scene_scores:g2.scene_scores,slot_check:g2.slot_check,slot_warning:g2.slot_warning}},
+          (ioS.slots&&ioS.slots.glm)?{t:"GLM 槽位抽取（语言理解层）· 请求与原始返回",o:ioS.slots.glm}:null,
+          {t:"槽位候选（来源 "+slotSrc+"）",o:ioS.slots?{source:ioS.slots.source,candidates:ioS.slots.candidates,schema:ioS.slots.schema}:null}
+        ]);
+    }
     while(navRunning){
       var r=await navFetch("/v1/navstep",{session_id:sess});
       if(!r.ok){ navStatus("导航中断：navstep 失败（HTTP "+r.code+" · "+esc(r.err)+"）",true); break; }
@@ -980,7 +1042,10 @@ async function runNav(){
     var r0=await navFetch("/v1/navstart",{sentence:sentence});
     if(!r0.ok){
       if(r0.data===null) throw new Error("navstart "+(r0.err||"响应不完整"));   /* 响应体不完整 → 链路异常，显式上报 */
-      navStatus("导航未启动："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）"); return;   /* GLM/银行/会话上限等真实错误显式上报，不静默转模拟 */
+      navStatus("导航未启动："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）");
+      renderNavIONode("N0","意图理解 navstart","err","失败",null,"HTTP "+r0.code+" · "+esc(r0.err||""),
+        [{t:"navstart 错误",o:{code:r0.code,err:r0.err}}]);
+      return;   /* GLM/银行/会话上限等真实错误显式上报，不静默转模拟 */
     }
     if(r0.data.multi===true){
       /* 多意图：GLM 已拆解为单意图任务队列 → 逐任务独立 navstart→navstep→办结 */
@@ -989,6 +1054,18 @@ async function runNav(){
       var msLine="JEV 检测到多意图（multi_intent="+fmt(r0.data.gate&&r0.data.gate.multi_intent)+"）· GLM 拆解 "+tasks.length+" 个任务（"+(r0.data.glm_ms||0)+"ms）："
         +tasks.map(function(t){ return "「"+esc(t.utterance)+"」"; }).join(" → ");
       navStatus(msLine);
+      /* 管道节点 N0：多意图检测 + GLM 拆解完整输入输出 */
+      var ioM=r0.data.io||null;
+      if(ioM&&ioM.jev){
+        renderNavIONode("N0","多意图检测 navstart","skip","GLM 拆解",(r0.data.jev_ms||0)+(r0.data.glm_ms||0),
+          esc(r0.data.reason||""),
+          [
+            {t:"模型输入 · JEV 意图理解请求体",o:{model:ioM.jev.model,endpoint:ioM.jev.endpoint,instructions:ioM.jev.instructions,state:ioM.jev.state,questions:ioM.jev.questions}},
+            {t:"模型原始返回 · answers",o:ioM.jev.answers},
+            (ioM.decompose&&ioM.decompose.glm)?{t:"GLM 多意图拆解（语言理解层）· 请求与原始返回",o:ioM.decompose.glm}:null,
+            {t:"拆解结果 decompose",o:ioM.decompose||null}
+          ]);
+      }
       var results=[];
       for(var i=0;i<tasks.length;i++){
         if(!navRunning) break;
@@ -1017,12 +1094,13 @@ async function runNav(){
       renderNavStep({step:0,max_steps:0,state:"gate_failed",state_name:"门控拦截",observe:{image:null,verdict:null,degraded:true,d3_error:"未观察（意图阶段拦截）",elements:0},
         done:true,match:false,stop_reason:"gate_failed",action:null,
         model:{jev_ms:r0.data.jev_ms,probes:r0.data.probes||[],decision:{type:"abort",label:"意图门控拦截",reason:r0.data.reason},jev_error:null},
+        io:r0.data.io||{note:"未过意图门控（打分明细见 model.probes）"},
         final:"JEV 意图理解未过门控："+(r0.data.reason||"")+"，请换个说法重述",elapsed_ms:r0.data.jev_ms});
       toast("JEV 置信不足，请换个说法重述");
       return;
     }
-    /* 单意图：整句直接执行（复用首次 navstart 已建的会话，避免重复建会话） */
-    var rs1=await runTaskCore(sentence,r0.data);
+    /* 单意图：整句直接执行（复用首次 navstart 已建的会话，避免重复建会话；传 navFetch 信封 {ok,code,data}） */
+    var rs1=await runTaskCore(sentence,r0);
     if(rs1.match) navStatus("导航完成 · "+rs1.steps+" 步 · 模型判定办成（"+esc(rs1.target?rs1.target.label:"目标")+"）");
     else if(rs1.done) navStatus("导航终止："+esc(STOP_TXT[rs1.stop_reason]||rs1.stop_reason||"未到达"),true);
   }catch(e){
