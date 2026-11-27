@@ -11,3 +11,5 @@ __pycache__/
 
 # 工作区数据
 .workbuddy/
+# 导航轨迹落盘（JEV 增训样本，本地数据不入库）
+server/data/

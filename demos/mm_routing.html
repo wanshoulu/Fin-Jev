@@ -226,6 +226,12 @@ body{
   background:var(--line-2); border:0.5px solid var(--line-1); border-radius:8px;
 }
 .nav-final b{color:var(--ink-1);}
+.task-div{
+  margin:12px 0 8px; padding:7px 12px; font-size:12px; font-weight:600; color:var(--jev);
+  background:var(--jev-bg); border-radius:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+}
+.task-div .st{font-weight:400; margin-left:auto; color:var(--ink-3);}
+.task-div.run{color:var(--jev);} .task-div.ok .st{color:var(--jev);} .task-div.bad{color:var(--ink-2); background:var(--red-bg);} .task-div.bad .st{color:var(--red);}
 @media (max-width:1080px){ .main{grid-template-columns:1fr;} .phone{margin-left:0;} }
 </style>
 </head>
@@ -319,7 +325,7 @@ body{
     </div>
 
     <div class="card" id="navCard" style="display:none">
-      <h2>连续导航 <span class="n">一句话 → GLM 意图+槽位 → observe（截图+三题+真实元素）· act（模型决定点击/填参）循环 → 模型判定完成</span></h2>
+      <h2>连续导航 <span class="n">一句话 → JEV 意图理解（多意图 GLM 拆解 · 槽位 GLM 抽取）→ observe（截图+probe 阵列）→ act（点击/填参/确认）循环 → 办成</span></h2>
       <div class="nav-ask">
         <div class="desc" id="navStatus">导航服务检测中…</div>
         <div class="inrow">
@@ -337,7 +343,7 @@ body{
           <div class="ph-empty" id="navPhEmpty">mock 手机银行预览 · 输入一句话开始导航，每步替换为实时截图</div>
         </div>
         <div class="shot-meta">
-          <div class="desc">导航在本地 headless Edge 打开 mock 手机银行（:3000）。决策全部由 JEV（systemone 是非题并行打分）做出：navstart 单请求并行打 6 域+7 场景判据（argmax 过门控 0.5/0.2），槽位正则候选+是非题校验；每步 probe 阵列判到达/点击/填参/滚动，argmax 过门控执行，全低分显式中止；d3 三题提供视觉证据并在页面异常时硬停；服务端无关键词表、无策略表。最多 12 步。导航服务未运行时自动降级为预置路径模拟（标注「模拟」）。</div>
+          <div class="desc">导航在本地 headless Edge 打开 mock 手机银行（:3000）。语言理解层 GLM：多意图检测（JEV 是非题 ≥0.5）触发 GLM 拆解为单意图任务队列逐个办理；槽位由 GLM 小模型按场景 schema 抽取（JEV slot_check 校验防幻觉，正则兜底）。页面决策层保持 JEV 零 LLM：navstart 单请求并行打 6 域+7 场景+槽位校验+多意图判据（argmax 过门控 0.5/0.2）；每步 probe 阵列判到达/点击/填参/滚动，转账到达待确认计划卡由 plan_confirm 门控点击「本人确认并执行」走真实办理；argmax 过门控执行，全低分显式中止；d3 三题提供视觉证据并在页面异常时硬停；执行层为设备适配器（Playwright headless Edge，可换 ADB 真机驱动）。最多 12 步。导航服务未运行时自动降级为预置路径模拟（标注「模拟」）。</div>
         </div>
       </div>
       <div id="navTimeline" style="margin-top:12px"></div>
@@ -724,7 +730,7 @@ async function runRoute(){
 var navMode="step", navBase="", navRunning=false, navAC=null, NAV_GOAL_NAME="", navOK=false, navProbeT=0;
 if(location.protocol!=="http:"&&location.protocol!=="https:") navBase="http://127.0.0.1:8789"; // file:// 直连 serve_nav（CORS 已放开）
 var STOP_TXT={arrived:"办成",abnormal:"页面异常",no_route:"无可用动作",no_progress:"页面无进展",max_steps:"步数上限",act_failed:"连续执行失败",model_error:"模型输出异常",model_abort:"模型中止",gave_up:"模型放弃",missing_slots:"缺少关键参数",gate_failed:"置信不足",jev_error:"JEV 打分失败"};
-var NAV_SENTS=["给张伟转账1000元","我要交燃气费","查一下账户余额","看看龙钱宝","我的卡丢了"];
+var NAV_SENTS=["给张伟转账1000元","我要交燃气费","交燃气费再给张伟转100元","查一下账户余额","我的卡丢了"];
 /* 模拟降级用：5 条预置路径（截图序列 + 每步动作文案），仅在后端不可达时演示，与真实链路无关 */
 var NAV_INTENTS=[
  {key:"transfer",kw:["转账","张伟","汇款"],label:"转账汇款",desc:"给张伟转账 1000 元（任务计划待本人确认）",goalName:"转账任务计划（智能服务屏）",leaf:"demo.transfer.peer",
@@ -896,25 +902,31 @@ function renderNavSummary(target,steps,done,match,stopReason,v,ms,demo,final){
   document.getElementById("rep").innerHTML=h;
   document.getElementById("demoFlag").className="demo-flag"+(demo?" show":"");
 }
-async function runNav(){
-  var sentence=(document.getElementById("navInput").value||"").trim();
-  if(!sentence){ toast("请输入一句话描述要办理的事情"); return; }
-  var go=document.getElementById("navGo"), stop=document.getElementById("navStop");
-  go.disabled=true; stop.style.display="";
-  navRunning=true;
-  navAC=(typeof AbortController!=="undefined")?new AbortController():null;
-  document.getElementById("navTimeline").innerHTML='<div class="nav-user">'+esc(sentence)+'</div><div class="empty" id="navPending">导航启动中…（JEV 判据阵列解析意图 → headless Edge 打开 mock 手机银行）</div>';
-  setNavShot(null);
-  var t0=Date.now(), sess=null, steps=0, done=false, match=false, stopReason=null, demo=false, target=null, lastV=null, lastFinal=null;
+function renderTaskDivider(idx,total,utterance,state){
+  /* 任务队列分隔卡：idx 从 1 计；state: run/ok/bad */
+  var st=state==="run"?"执行中…":(state==="ok"?"✓ 办成":"✗ 未办成");
+  var h='<div class="task-div '+state+'" id="taskDiv_'+idx+'">任务 '+idx+'/'+total+'：'+esc(utterance)+'<span class="st">'+st+'</span></div>';
+  document.getElementById("navTimeline").insertAdjacentHTML("beforeend",h);
+  return document.getElementById("taskDiv_"+idx);
+}
+function updateTaskDivider(idx,state){
+  var el=document.getElementById("taskDiv_"+idx); if(!el) return;
+  el.className="task-div "+state;
+  el.querySelector(".st").textContent=state==="ok"?"✓ 办成":"✗ 未办成";
+}
+/* 单任务执行核心：navstart（可复用外层已建会话）→ navstep 循环 → 汇总 → 关会话。多意图拆解出的每个任务、单意图句子都走这里 */
+async function runTaskCore(sentence,startResp){
+  var sess=null, steps=0, done=false, match=false, stopReason=null, target=null, lastV=null, lastFinal=null, t0=Date.now();
   try{
-    if(!(await probeNav())) throw {demo:true};   /* 探测已知后端不可用 → 直接走本地模拟，不再请求 navstart 挨 502 */
-    var r0=await navFetch("/v1/navstart",{sentence:sentence});
+    var r0=startResp||await navFetch("/v1/navstart",{sentence:sentence});
     if(!r0.ok){
-      if(r0.data===null) throw new Error("navstart "+(r0.err||"响应不完整"));   /* 响应体不完整 → 链路异常，显式上报 */
-      navStatus("导航未启动："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）"); return;   /* GLM/银行/会话上限等真实错误显式上报，不静默转模拟 */
+      if(r0.data===null) throw new Error("navstart "+(r0.err||"响应不完整"));
+      navStatus("导航未启动："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）");
+      return {done:false,match:false,stop_reason:"start_failed",steps:0,target:null,final:r0.err};
     }
     if(r0.data.accepted===false){
       /* JEV 意图理解未过门控（top1<0.5 或 gap<0.2）：显式展示全部打分，要求重述，不冒进 */
+      var pend0=document.getElementById("navPending"); if(pend0) pend0.remove();
       var g=r0.data.gate||{};
       var ds=(g.domain_scores||[]).map(function(x){ return esc(x.name)+" "+fmt(x.score); }).join(" · ");
       navStatus("JEV 意图理解未过门控："+esc(r0.data.reason||"")+"（域打分："+ds+"）",true);
@@ -922,14 +934,15 @@ async function runNav(){
         done:true,match:false,stop_reason:"gate_failed",action:null,
         model:{jev_ms:r0.data.jev_ms,probes:r0.data.probes||[],decision:{type:"abort",label:"意图门控拦截",reason:r0.data.reason},jev_error:null},
         final:"JEV 意图理解未过门控："+(r0.data.reason||"")+"，请换个说法重述",elapsed_ms:r0.data.jev_ms});
-      toast("JEV 置信不足，请换个说法重述");
-      return;
+      return {done:true,match:false,stop_reason:"gate_failed",steps:0,target:null,final:r0.data.reason};
     }
     sess=r0.data.session_id; target=r0.data.target;
+    var pend2=document.getElementById("navPending"); if(pend2) pend2.remove();
     NAV_GOAL_NAME=target.goal_desc;
     var slotTxt=Object.keys(target.slots||{}).map(function(k){ return k+"="+target.slots[k]; }).join(" · ");
     var g2=target.gate||{};
-    navStatus("JEV 意图理解：<b>"+esc(target.label)+"</b>"+(slotTxt?"（槽位："+esc(slotTxt)+"）":"")
+    var slotSrc=r0.data.slot_source==="glm"?"GLM 抽取+JEV 校验":"正则兜底";
+    navStatus("JEV 意图理解：<b>"+esc(target.label)+"</b>"+(slotTxt?"（槽位："+esc(slotTxt)+" · "+slotSrc+"）":"（无槽位）")
       +" · 目标："+esc(target.goal_desc)
       +" · 门控 top1 "+esc((g2.top1&&g2.top1.name)||"")+" "+fmt(g2.top1&&g2.top1.score)+" / gap "+fmt(g2.gap)
       +" · 打分 "+r0.data.jev_ms+"ms · 最多 "+r0.data.max_steps+" 步");
@@ -944,20 +957,82 @@ async function runNav(){
       renderNavStep(d);
       if(d.done) break;
     }
-    renderNavSummary(target,steps,done,match,stopReason,lastV,Date.now()-t0,demo,lastFinal);
+    renderNavSummary(target,steps,done,match,stopReason,lastV,Date.now()-t0,false,lastFinal);
     addLog({ts:nowTs(),nav:true,sentence:sentence,target:target?target.label:null,steps:steps,
-      done:done,match:match,stop_reason:stopReason,demo:demo||undefined});
-    if(match) navStatus("导航完成 · "+steps+" 步 · 模型判定办成（"+esc(target.label)+"）");
-    else if(done) navStatus("导航终止："+esc(STOP_TXT[stopReason]||stopReason||"未到达"),true);
+      done:done,match:match,stop_reason:stopReason});
+    return {done:done,match:match,stop_reason:stopReason,steps:steps,target:target,final:lastFinal};
+  }finally{
+    if(sess){ try{ navFetch("/v1/navclose",{session_id:sess},true); }catch(_e){} }
+  }
+}
+async function runNav(){
+  var sentence=(document.getElementById("navInput").value||"").trim();
+  if(!sentence){ toast("请输入一句话描述要办理的事情"); return; }
+  var go=document.getElementById("navGo"), stop=document.getElementById("navStop");
+  go.disabled=true; stop.style.display="";
+  navRunning=true;
+  navAC=(typeof AbortController!=="undefined")?new AbortController():null;
+  document.getElementById("navTimeline").innerHTML='<div class="nav-user">'+esc(sentence)+'</div><div class="empty" id="navPending">导航启动中…（JEV 判据阵列解析意图 → headless Edge 打开 mock 手机银行）</div>';
+  setNavShot(null);
+  var t0=Date.now();
+  try{
+    if(!(await probeNav())) throw {demo:true};   /* 探测已知后端不可用 → 直接走本地模拟，不再请求 navstart 挨 502 */
+    var r0=await navFetch("/v1/navstart",{sentence:sentence});
+    if(!r0.ok){
+      if(r0.data===null) throw new Error("navstart "+(r0.err||"响应不完整"));   /* 响应体不完整 → 链路异常，显式上报 */
+      navStatus("导航未启动："+esc(r0.err),true); toast("导航未启动（HTTP "+r0.code+"）"); return;   /* GLM/银行/会话上限等真实错误显式上报，不静默转模拟 */
+    }
+    if(r0.data.multi===true){
+      /* 多意图：GLM 已拆解为单意图任务队列 → 逐任务独立 navstart→navstep→办结 */
+      var tasks=r0.data.tasks||[];
+      var pend=document.getElementById("navPending"); if(pend) pend.remove();
+      var msLine="JEV 检测到多意图（multi_intent="+fmt(r0.data.gate&&r0.data.gate.multi_intent)+"）· GLM 拆解 "+tasks.length+" 个任务（"+(r0.data.glm_ms||0)+"ms）："
+        +tasks.map(function(t){ return "「"+esc(t.utterance)+"」"; }).join(" → ");
+      navStatus(msLine);
+      var results=[];
+      for(var i=0;i<tasks.length;i++){
+        if(!navRunning) break;
+        renderTaskDivider(i+1,tasks.length,tasks[i].utterance,"run");
+        var rs=await runTaskCore(tasks[i].utterance);
+        results.push({utterance:tasks[i].utterance,rs:rs});
+        updateTaskDivider(i+1,rs.match?"ok":"bad");
+        if(navRunning&&i<tasks.length-1) document.getElementById("navTimeline").insertAdjacentHTML("beforeend",'<div class="pl-arrow">▼</div>');
+      }
+      var okN=results.filter(function(x){ return x.rs.match; }).length;
+      var sumLine="多意图队列执行完毕："+okN+"/"+results.length+" 办成 · "
+        +results.map(function(x,i2){ return "任务"+(i2+1)+"（"+esc(x.utterance)+"）"+(x.rs.match?"✓ 办成 "+x.rs.steps+" 步":"✗ "+esc(STOP_TXT[x.rs.stop_reason]||x.rs.stop_reason||"未到达")); }).join(" · ");
+      document.getElementById("navTimeline").insertAdjacentHTML("beforeend",'<div class="nav-final">'+esc(sumLine)+'</div>');
+      addLog({ts:nowTs(),nav:true,multi:true,sentence:sentence,tasks:tasks.map(function(t){ return t.utterance; }),
+        done_count:okN,total:results.length,elapsed_ms:Date.now()-t0});
+      navStatus(okN===results.length?("多意图全部办成（"+okN+"/"+results.length+"）· 总耗时 "+(Math.round((Date.now()-t0)/100)/10)+"s"):(sumLine),okN!==results.length);
+      if(okN!==results.length) toast("多意图队列："+okN+"/"+results.length+" 办成");
+      return;
+    }
+    if(r0.data.accepted===false){
+      /* JEV 意图理解未过门控（top1<0.5 或 gap<0.2）：显式展示全部打分，要求重述，不冒进 */
+      var pend0=document.getElementById("navPending"); if(pend0) pend0.remove();
+      var g=r0.data.gate||{};
+      var ds=(g.domain_scores||[]).map(function(x){ return esc(x.name)+" "+fmt(x.score); }).join(" · ");
+      navStatus("JEV 意图理解未过门控："+esc(r0.data.reason||"")+"（域打分："+ds+"）",true);
+      renderNavStep({step:0,max_steps:0,state:"gate_failed",state_name:"门控拦截",observe:{image:null,verdict:null,degraded:true,d3_error:"未观察（意图阶段拦截）",elements:0},
+        done:true,match:false,stop_reason:"gate_failed",action:null,
+        model:{jev_ms:r0.data.jev_ms,probes:r0.data.probes||[],decision:{type:"abort",label:"意图门控拦截",reason:r0.data.reason},jev_error:null},
+        final:"JEV 意图理解未过门控："+(r0.data.reason||"")+"，请换个说法重述",elapsed_ms:r0.data.jev_ms});
+      toast("JEV 置信不足，请换个说法重述");
+      return;
+    }
+    /* 单意图：整句直接执行（复用首次 navstart 已建的会话，避免重复建会话） */
+    var rs1=await runTaskCore(sentence,r0.data);
+    if(rs1.match) navStatus("导航完成 · "+rs1.steps+" 步 · 模型判定办成（"+esc(rs1.target?rs1.target.label:"目标")+"）");
+    else if(rs1.done) navStatus("导航终止："+esc(STOP_TXT[rs1.stop_reason]||rs1.stop_reason||"未到达"),true);
   }catch(e){
     if(e&&e.name==="AbortError"){ navStatus("导航已中止",true); }
     else{
       /* 后端链路中途异常（截断/断连/超时）：报出原因再转本地模拟，不再静默吞掉 */
       navStatus("后端链路异常（"+esc(String((e&&e.message)||e)).slice(0,120)+"）· 转本地模拟",true);
-      demo=true; await simulateNav(sentence);
+      await simulateNav(sentence);
     }
   }finally{
-    if(sess){ try{ navFetch("/v1/navclose",{session_id:sess},true); }catch(_e){} }
     navRunning=false; go.disabled=false; stop.style.display="none";
     if(navAC){ try{navAC.abort();}catch(_e){} navAC=null; }
   }
